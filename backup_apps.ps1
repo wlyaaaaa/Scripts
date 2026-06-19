@@ -9,12 +9,7 @@ Clear-Host
 $TargetDrive = "H:\"
 $BackupDir   = "H:\My_Digital_Backup"
 
-function Pause-Exit {
-    Write-Host ""
-    Write-Host "  按 Enter 关闭..." -ForegroundColor DarkGray
-    Read-Host | Out-Null
-    exit
-}
+function Pause-Exit { exit }
 
 Write-Host ""
 Write-Host "  📦 软件列表备份" -ForegroundColor Cyan
