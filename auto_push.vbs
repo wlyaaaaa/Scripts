@@ -1,2 +1,4 @@
+Dim shell, exitCode
 Set shell = CreateObject("WScript.Shell")
-shell.Run "cmd.exe /c ""E:\Scripts\auto_push.bat""", 0, False
+exitCode = shell.Run("cmd.exe /c ""E:\Scripts\auto_push.bat""", 0, True)
+WScript.Quit exitCode
