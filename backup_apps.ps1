@@ -20,6 +20,7 @@ $MinimumFreeBytes = [UInt64](2GB)
 $MutexWaitSeconds = 1800
 
 . (Join-Path $PSScriptRoot 'HDriveSafety.ps1')
+. (Join-Path $PSScriptRoot 'EnvRedaction.ps1')
 
 function Pause-Exit {
     param([int]$Code = 0)
@@ -80,8 +81,11 @@ try {
 
         # 4. 环境变量
         Write-Host "  🌐 导出环境变量..." -NoNewline
+        $EnvLatestPath = Join-Path $BackupDir 'env_latest.txt'
+        $EnvRedactedLatestPath = Join-Path $BackupDir 'env_redacted_latest.txt'
         Get-ChildItem Env:\ | Sort-Object Name | Format-List |
-            Out-File -FilePath "$BackupDir\env_latest.txt" -Encoding utf8 -Force
+            Out-File -FilePath $EnvLatestPath -Encoding utf8 -Force
+        Export-CodexRedactedEnvFile -InputPath $EnvLatestPath -OutputPath $EnvRedactedLatestPath | Out-Null
         Write-Host " ✅" -ForegroundColor Green
 
         # 5. Winget 清单
