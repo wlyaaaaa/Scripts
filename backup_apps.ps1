@@ -87,7 +87,24 @@ try {
         # 5. Winget 清单
         if (Get-Command winget -ErrorAction SilentlyContinue) {
             Write-Host "  🪟 导出 Winget 清单..." -NoNewline
-            winget export -o "$BackupDir\winget_latest.json" --include-versions --accept-source-agreements | Out-Null
+            $WingetTarget = Join-Path $BackupDir 'winget_latest.json'
+            $WingetTemp = Join-Path $env:TEMP ('winget_latest_{0}.json' -f ([guid]::NewGuid().ToString('N')))
+            try {
+                winget export -o $WingetTemp --include-versions --accept-source-agreements | Out-Null
+                if ($LASTEXITCODE -ne 0) {
+                    throw "winget export exited with code $LASTEXITCODE"
+                }
+                if (-not (Test-Path -LiteralPath $WingetTemp)) {
+                    throw 'winget export did not create the expected JSON file'
+                }
+                $WingetTempItem = Get-Item -LiteralPath $WingetTemp
+                if ($WingetTempItem.Length -le 0) {
+                    throw 'winget export created an empty JSON file'
+                }
+                Copy-Item -LiteralPath $WingetTemp -Destination $WingetTarget -Force
+            } finally {
+                Remove-Item -LiteralPath $WingetTemp -Force -ErrorAction SilentlyContinue
+            }
             Write-Host " ✅" -ForegroundColor Green
         } else {
             Write-Host "  ⚠️  winget 未安装，已跳过" -ForegroundColor Yellow
