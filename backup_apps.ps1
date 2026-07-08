@@ -2,12 +2,18 @@
 # 软件列表备份脚本
 # ==========================================
 
-$Host.UI.RawUI.BackgroundColor = "Black"
-$Host.UI.RawUI.ForegroundColor = "White"
-Clear-Host
+try {
+    $Host.UI.RawUI.BackgroundColor = "Black"
+    $Host.UI.RawUI.ForegroundColor = "White"
+    Clear-Host
+} catch {
+    # Non-interactive scheduled task hosts can reject RawUI cursor operations.
+}
 
 $TargetDrive = "H:\"
-$BackupDir   = "H:\My_Digital_Backup"
+$AutoBackupDirName = '80_' + (-join @([char]0x81EA, [char]0x52A8, [char]0x5907, [char]0x4EFD, [char]0x533A))
+$SoftwareEnvDirName = -join @([char]0x8F6F, [char]0x4EF6, [char]0x73AF, [char]0x5883)
+$BackupDir = Join-Path (Join-Path $TargetDrive $AutoBackupDirName) $SoftwareEnvDirName
 
 function Pause-Exit { exit }
 
