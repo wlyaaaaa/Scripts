@@ -14,11 +14,13 @@ Windows 小工具脚本集。下面这些**双击就能用**:
 | **`更新README.bat`** | **自动刷新本 README 的文件清单**(下面 `## File list` 那段)并 commit + push | 描述区是手写的,只自动更新文件列表 |
 | **`auto_push.bat`** | 把本仓库**一键 commit + push 到 GitHub** | 无改动则自动跳过 |
 | **`backup_apps.bat`** | 备份**已装软件清单 + 环境变量 + winget 清单** 到 `H:\My_Digital_Backup` | **要先插 `H:` 盘**,否则自动跳过 |
+| **`Sync-DownloadsToH.bat`** | 把系统下载目录 `E:\Downloads` 同步到 U 盘 `H:\03_下载与安装包` | 只复制/更新,**不删除 H 盘旧文件**; 低优先级思路,脚本内 `robocopy /MT:1 /R:0` |
 
 ## 其他(非开箱即用)
 
 - `Set-DefaultAudio.ps1`、`backup_apps.ps1`、`IPv6-Status.ps1`、`IPv6-Toggle.ps1`、`Update-Readme.ps1` —— 上面那些 `.bat` 的内核,不单独跑。
 - `backup_apps_hidden.vbs`、`auto_push.vbs` —— 对应功能的**无窗口版**,挂「任务计划程序」定时跑用。
+- `Sync-DownloadsToH.ps1`、`Sync-DownloadsToH-Hidden.vbs` —— 下载目录同步到 H 盘的计划任务入口; 源目录是 Windows 当前下载目录 `E:\Downloads`; 先验清单可跑 `Sync-DownloadsToH.ps1 -ListOnly`。若 `state\h-downloads-known-bad-20260707.csv` 存在,隐藏任务会先做一次已知 CRC 文件覆盖修复,成功后自动改名为 `.done-*`。
 - `检查运行状态.vbs` —— 弹窗看 TimeAudit 状态,**依赖 `E:\TimeAudit\check_status_gui.ps1`**(不在本仓库)。
 
 > 关于 IPv6:很多被墙的服务(Google/Antigravity 等)会**优先走 IPv6 直连**,而代理只接管 IPv4 → IPv6 流量裸奔撞墙超时。**登录 Google 系应用前,用 `IPv6状态.bat` 看一眼,开着就 `IPv6切换.bat` 关掉**,登录完想要 IPv6 再切回来。
@@ -29,22 +31,26 @@ Windows 小工具脚本集。下面这些**双击就能用**:
 <!-- FILES:START -->
 | File | Size | Modified |
 |------|------|----------|
-| `.gitignore` | 49 B | 2026-06-19 10:59 |
-| `auto_push.bat` | 134 B | 2026-06-19 11:00 |
-| `auto_push.vbs` | 104 B | 2026-06-20 15:47 |
-| `backup_apps.bat` | 135 B | 2026-06-19 11:07 |
-| `backup_apps.ps1` | 2330 B | 2026-06-19 11:07 |
-| `backup_apps_hidden.vbs` | 620 B | 2026-06-27 14:03 |
-| `IPv6-Status.ps1` | 913 B | 2026-06-28 21:08 |
-| `IPv6-Toggle.ps1` | 1384 B | 2026-06-28 21:08 |
-| `IPv6切换.bat` | 256 B | 2026-06-28 21:10 |
-| `IPv6状态.bat` | 101 B | 2026-06-28 21:10 |
-| `release_keyboard.py` | 481 B | 2026-07-01 02:03 |
-| `Set-DefaultAudio.ps1` | 1817 B | 2026-06-28 15:41 |
-| `Update-Readme.ps1` | 1599 B | 2026-06-28 21:09 |
+| `.gitignore` | 62 B | 2026-07-07 19:43 |
 | `更新README.bat` | 103 B | 2026-06-28 21:10 |
 | `检查运行状态.vbs` | 1773 B | 2026-06-15 11:04 |
 | `释放卡住按键.bat` | 50 B | 2026-07-01 02:03 |
 | `微信双开.vbs` | 855 B | 2026-06-19 10:42 |
 | `修复音响声音.bat` | 201 B | 2026-06-28 15:41 |
+| `auto_push.bat` | 134 B | 2026-06-19 11:00 |
+| `auto_push.vbs` | 157 B | 2026-07-05 22:43 |
+| `backup_apps_hidden.vbs` | 663 B | 2026-07-05 22:42 |
+| `backup_apps.bat` | 135 B | 2026-06-19 11:07 |
+| `backup_apps.ps1` | 2330 B | 2026-06-19 11:07 |
+| `IPv6-Status.ps1` | 913 B | 2026-06-28 21:08 |
+| `IPv6-Toggle.ps1` | 1384 B | 2026-06-28 21:08 |
+| `IPv6切换.bat` | 256 B | 2026-06-28 21:10 |
+| `IPv6状态.bat` | 101 B | 2026-06-28 21:10 |
+| `release_keyboard.py` | 481 B | 2026-07-01 02:03 |
+| `Set-DefaultAudio-Hidden.vbs` | 425 B | 2026-07-05 22:37 |
+| `Set-DefaultAudio.ps1` | 1817 B | 2026-06-28 15:41 |
+| `Sync-DownloadsToH-Hidden.vbs` | 236 B | 2026-07-07 19:43 |
+| `Sync-DownloadsToH.bat` | 101 B | 2026-07-07 19:40 |
+| `Sync-DownloadsToH.ps1` | 3698 B | 2026-07-07 19:43 |
+| `Update-Readme.ps1` | 1599 B | 2026-06-28 21:09 |
 <!-- FILES:END -->
