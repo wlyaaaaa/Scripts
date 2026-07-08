@@ -15,7 +15,12 @@ try {
 $TargetDrive = "H:\"
 $AutoBackupDirName = '80_' + (-join @([char]0x81EA, [char]0x52A8, [char]0x5907, [char]0x4EFD, [char]0x533A))
 $SoftwareEnvDirName = -join @([char]0x8F6F, [char]0x4EF6, [char]0x73AF, [char]0x5883)
-$BackupDir = Join-Path (Join-Path $TargetDrive $AutoBackupDirName) $SoftwareEnvDirName
+$AutoBackupRoot = Join-Path $TargetDrive $AutoBackupDirName
+$BackupDir = Join-Path $AutoBackupRoot $SoftwareEnvDirName
+$DockerImageBackupDir = Join-Path (Join-Path $AutoBackupRoot 'Docker') 'images'
+$DockerImagesToSave = @(
+    'timeaudit-audit-ingest:latest'
+)
 $MinimumFreeBytes = [UInt64](2GB)
 $MutexWaitSeconds = 1800
 
@@ -83,9 +88,19 @@ try {
         Write-Host "  🌐 导出环境变量..." -NoNewline
         $EnvLatestPath = Join-Path $BackupDir 'env_latest.txt'
         $EnvRedactedLatestPath = Join-Path $BackupDir 'env_redacted_latest.txt'
-        Get-ChildItem Env:\ | Sort-Object Name | Format-List |
-            Out-File -FilePath $EnvLatestPath -Encoding utf8 -Force
-        Export-CodexRedactedEnvFile -InputPath $EnvLatestPath -OutputPath $EnvRedactedLatestPath | Out-Null
+        $EnvTempPath = Join-Path $env:TEMP ('env_latest_{0}.txt' -f ([guid]::NewGuid().ToString('N')))
+        try {
+            Get-ChildItem Env:\ | Sort-Object Name | Format-List |
+                Out-File -FilePath $EnvTempPath -Encoding utf8 -Force
+            Export-CodexRedactedEnvFile -InputPath $EnvTempPath -OutputPath $EnvRedactedLatestPath | Out-Null
+            @(
+                'Plaintext environment variables are intentionally not retained here.',
+                'Use env_redacted_latest.txt for routine review.',
+                'Use DevConfigBackup _system\env-user.reg, _system\env-machine.reg, and _system\path-machine.txt for recovery.'
+            ) | Out-File -FilePath $EnvLatestPath -Encoding utf8 -Force
+        } finally {
+            Remove-Item -LiteralPath $EnvTempPath -Force -ErrorAction SilentlyContinue
+        }
         Write-Host " ✅" -ForegroundColor Green
 
         # 5. Winget 清单
@@ -112,6 +127,56 @@ try {
             Write-Host " ✅" -ForegroundColor Green
         } else {
             Write-Host "  ⚠️  winget 未安装，已跳过" -ForegroundColor Yellow
+        }
+
+        # 6. Docker 本地自建镜像
+        if (Get-Command docker -ErrorAction SilentlyContinue) {
+            Write-Host "  🐳 备份 Docker 本地镜像..." -NoNewline
+            New-Item -ItemType Directory -Path $DockerImageBackupDir -Force | Out-Null
+            $dockerManifest = @()
+            foreach ($image in $DockerImagesToSave) {
+                $imageId = (& docker image inspect $image --format '{{.Id}}' 2>$null)
+                if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($imageId)) {
+                    $dockerManifest += [pscustomobject]@{
+                        Image = $image
+                        Status = 'missing'
+                        SavedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+                    }
+                    continue
+                }
+
+                $safeName = ($image -replace '[^A-Za-z0-9_.-]', '_')
+                $targetTar = Join-Path $DockerImageBackupDir "$safeName.latest.tar"
+                $tempTar = "$targetTar.tmp"
+                Remove-Item -LiteralPath $tempTar -Force -ErrorAction SilentlyContinue
+
+                & docker image save $image -o $tempTar
+                if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $tempTar)) {
+                    throw "docker image save failed for $image"
+                }
+                $tempItem = Get-Item -LiteralPath $tempTar
+                if ($tempItem.Length -le 0) {
+                    throw "docker image save produced an empty archive for $image"
+                }
+                Move-Item -LiteralPath $tempTar -Destination $targetTar -Force
+                $hash = (Get-FileHash -LiteralPath $targetTar -Algorithm SHA256).Hash
+                $targetItem = Get-Item -LiteralPath $targetTar
+                $dockerManifest += [pscustomobject]@{
+                    Image = $image
+                    ImageId = $imageId
+                    Archive = $targetItem.Name
+                    Bytes = $targetItem.Length
+                    Sha256 = $hash
+                    SavedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+                    Restore = "docker image load -i `"$($targetItem.Name)`""
+                    Status = 'saved'
+                }
+            }
+            $dockerManifest | ConvertTo-Json -Depth 5 |
+                Out-File -FilePath (Join-Path $DockerImageBackupDir 'manifest_latest.json') -Encoding utf8 -Force
+            Write-Host " ✅" -ForegroundColor Green
+        } else {
+            Write-Host "  ⚠️  docker 未安装，已跳过 Docker 镜像备份" -ForegroundColor Yellow
         }
     }
 } catch {
