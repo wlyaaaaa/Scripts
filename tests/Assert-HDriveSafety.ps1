@@ -68,6 +68,18 @@ Assert-Text 'shared H drive mutex is present' ($helperText -match 'Global\\Codex
 Assert-Text 'dirty H volume is checked' ($helperText -match 'DirtyBitSet|Dirty|Full Repair Needed')
 Assert-Text 'Get-Volume health gate is present' ($helperText -match 'HealthStatus|OperationalStatus')
 Assert-Text 'free space guard is present' ($helperText -match 'FreeBytes|MinimumFreeBytes')
+
+. $helperScript
+Assert-Text 'Chinese fsutil clean output maps to clean' (
+    (ConvertFrom-CodexDirtyQueryOutput '卷 - H: 未设置为脏') -eq $false
+)
+Assert-Text 'Chinese fsutil dirty output maps to dirty' (
+    (ConvertFrom-CodexDirtyQueryOutput '卷 - H: 已设置为脏') -eq $true
+)
+Assert-Text 'unknown fsutil dirty output remains fail-safe' (
+    $null -eq (ConvertFrom-CodexDirtyQueryOutput '卷 - H: 状态未知')
+)
+
 Assert-Text 'Sync script dot-sources safety helper' ($syncText -match 'HDriveSafety\.ps1')
 Assert-Text 'backup_apps dot-sources safety helper' ($backupText -match 'HDriveSafety\.ps1')
 Assert-Text 'backup_apps returns failure when H write is rejected' ($backupText -match 'Pause-Exit\s+3')

@@ -19,6 +19,24 @@ function ConvertTo-CodexByteText {
     return ('{0:N0} bytes' -f $value)
 }
 
+function ConvertFrom-CodexDirtyQueryOutput {
+    param([AllowNull()][string]$Text)
+
+    if ([string]::IsNullOrWhiteSpace($Text)) {
+        return $null
+    }
+
+    if ($Text -match '(?i)\bNOT\s+Dirty\b' -or $Text -match '未\s*设置为\s*脏') {
+        return $false
+    }
+
+    if ($Text -match '(?i)\bis\s+Dirty\b|\bDirty\b' -or $Text -match '已\s*设置为\s*脏') {
+        return $true
+    }
+
+    return $null
+}
+
 function Get-CodexHDriveStatus {
     param(
         [string]$DriveLetter = 'H',
@@ -67,10 +85,9 @@ function Get-CodexHDriveStatus {
             throw "fsutil dirty query exited with code $dirtyExit"
         }
 
-        if ($dirtyText -match '(?i)\bNOT\s+Dirty\b') {
-            $status.DirtyBitSet = $false
-        } elseif ($dirtyText -match '(?i)\bis\s+Dirty\b|\bDirty\b') {
-            $status.DirtyBitSet = $true
+        $dirtyState = ConvertFrom-CodexDirtyQueryOutput $dirtyText
+        if ($null -ne $dirtyState) {
+            $status.DirtyBitSet = $dirtyState
         } else {
             $status.DirtyCheckError = 'Could not parse fsutil dirty query output.'
         }
