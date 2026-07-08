@@ -1,4 +1,6 @@
-Dim shell, exitCode
+Dim shell, fso, here, exitCode
 Set shell = CreateObject("WScript.Shell")
-exitCode = shell.Run("cmd.exe /c ""E:\Scripts\auto_push.bat""", 0, True)
+Set fso = CreateObject("Scripting.FileSystemObject")
+here = fso.GetParentFolderName(WScript.ScriptFullName)
+exitCode = shell.Run("cmd.exe /c """ & here & "\auto_push.bat""", 0, True)
 WScript.Quit exitCode

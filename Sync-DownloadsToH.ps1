@@ -1,6 +1,6 @@
 param(
     [switch]$ListOnly,
-    [string]$RefreshList = 'E:\Scripts\state\h-downloads-known-bad-20260707.csv',
+    [string]$RefreshList,
     [UInt64]$MinimumFreeBytes = [UInt64](2GB),
     [int]$MutexWaitSeconds = 1800
 )
@@ -21,6 +21,9 @@ $DownloadFolderName = -join @(
 )
 $Destination = Join-Path $TargetDrive "03_$DownloadFolderName"
 $LogDir = Join-Path $PSScriptRoot 'logs'
+if ([string]::IsNullOrWhiteSpace($RefreshList)) {
+    $RefreshList = Join-Path $PSScriptRoot 'state\h-downloads-known-bad-20260707.csv'
+}
 
 . (Join-Path $PSScriptRoot 'HDriveSafety.ps1')
 

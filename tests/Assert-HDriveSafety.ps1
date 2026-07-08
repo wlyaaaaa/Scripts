@@ -20,15 +20,19 @@ function Assert-Text {
 $syncScript = Join-Path $RepoRoot 'Sync-DownloadsToH.ps1'
 $backupScript = Join-Path $RepoRoot 'backup_apps.ps1'
 $hiddenLauncher = Join-Path $RepoRoot 'Sync-DownloadsToH-Hidden.vbs'
+$autoPushBatch = Join-Path $RepoRoot 'auto_push.bat'
+$autoPushLauncher = Join-Path $RepoRoot 'auto_push.vbs'
 $helperScript = Join-Path $RepoRoot 'HDriveSafety.ps1'
 $readme = Join-Path $RepoRoot 'README.md'
 
 $syncText = Get-Content -LiteralPath $syncScript -Raw
 $backupText = Get-Content -LiteralPath $backupScript -Raw
 $hiddenText = Get-Content -LiteralPath $hiddenLauncher -Raw
+$autoPushBatchText = Get-Content -LiteralPath $autoPushBatch -Raw
+$autoPushLauncherText = Get-Content -LiteralPath $autoPushLauncher -Raw
 $helperText = Get-Content -LiteralPath $helperScript -Raw
 $readmeText = Get-Content -LiteralPath $readme -Raw
-$allText = @($syncText, $backupText, $hiddenText, $helperText, $readmeText) -join "`n"
+$allText = @($syncText, $backupText, $hiddenText, $autoPushBatchText, $autoPushLauncherText, $helperText, $readmeText) -join "`n"
 
 $syncTokens = $null
 $syncErrors = $null
@@ -52,6 +56,13 @@ Assert-Text 'backup_apps.ps1 keeps UTF-8 BOM for Windows PowerShell 5.1' (
 )
 
 Assert-Text 'VBS waits for PowerShell child process' ($hiddenText -match 'shell\.Run\s+cmd,\s*0,\s*True')
+Assert-Text 'auto_push.bat works from its own directory' ($autoPushBatchText -match '%~dp0')
+Assert-Text 'auto_push.vbs resolves its own directory' (
+    $autoPushLauncherText -match 'WScript\.ScriptFullName' -and
+    $autoPushLauncherText -match 'GetParentFolderName'
+)
+$oldRootPattern = [regex]::Escape(('E:' + [IO.Path]::DirectorySeparatorChar + 'Scripts'))
+Assert-Text 'launchers avoid old Scripts root' ($allText -notmatch $oldRootPattern)
 
 Assert-Text 'shared H drive mutex is present' ($helperText -match 'Global\\CodexHDriveUsbWriteLock')
 Assert-Text 'dirty H volume is checked' ($helperText -match 'DirtyBitSet|Dirty|Full Repair Needed')
