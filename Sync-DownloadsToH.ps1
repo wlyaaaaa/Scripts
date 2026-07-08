@@ -9,7 +9,15 @@ $ErrorActionPreference = 'Stop'
 
 $Source = 'E:\Downloads'
 $TargetDrive = 'H:\'
-$Destination = 'H:\03_下载与安装包'
+$DownloadFolderName = -join @(
+    [char] 0x4E0B,
+    [char] 0x8F7D,
+    [char] 0x4E0E,
+    [char] 0x5B89,
+    [char] 0x88C5,
+    [char] 0x5305
+)
+$Destination = Join-Path $TargetDrive "03_$DownloadFolderName"
 $LogDir = Join-Path $PSScriptRoot 'logs'
 
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
