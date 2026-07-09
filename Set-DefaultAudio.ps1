@@ -41,4 +41,7 @@ public static class AudioSwitch {
 
 $rc = [AudioSwitch]::Set($TargetId)
 if ($rc -eq 0) { "OK: default output set to Realtek HD Audio 2nd output" }
-else { "ERR: SetDefaultEndpoint returned 0x{0:X8}" -f $rc }
+else {
+    "ERR: SetDefaultEndpoint returned 0x{0:X8}" -f $rc
+    exit 1
+}
