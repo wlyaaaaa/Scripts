@@ -1,3 +1,6 @@
+﻿[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
 $script:CodexHDriveMutexName = 'Global\CodexHDriveUsbWriteLock'
 
 function ConvertTo-CodexByteText {

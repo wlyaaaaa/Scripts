@@ -68,6 +68,10 @@ Assert-Text 'shared H drive mutex is present' ($helperText -match 'Global\\Codex
 Assert-Text 'dirty H volume is checked' ($helperText -match 'DirtyBitSet|Dirty|Full Repair Needed')
 Assert-Text 'Get-Volume health gate is present' ($helperText -match 'HealthStatus|OperationalStatus')
 Assert-Text 'free space guard is present' ($helperText -match 'FreeBytes|MinimumFreeBytes')
+Assert-Text 'external process pipe encoding is forced to UTF-8' (
+    $helperText -match '\[Console\]::OutputEncoding\s*=\s*\[System\.Text\.Encoding\]::UTF8' -and
+    $helperText -match '\$OutputEncoding\s*=\s*\[System\.Text\.Encoding\]::UTF8'
+)
 
 . $helperScript
 Assert-Text 'Chinese fsutil clean output maps to clean' (
@@ -83,6 +87,10 @@ Assert-Text 'unknown fsutil dirty output remains fail-safe' (
 Assert-Text 'Sync script dot-sources safety helper' ($syncText -match 'HDriveSafety\.ps1')
 Assert-Text 'backup_apps dot-sources safety helper' ($backupText -match 'HDriveSafety\.ps1')
 Assert-Text 'backup_apps returns failure when H write is rejected' ($backupText -match 'Pause-Exit\s+3')
+Assert-Text 'backup_apps computes Docker archive hash without module autoload dependency' (
+    $backupText -match 'function\s+Get-CodexFileSha256' -and
+    $backupText -match 'System\.Security\.Cryptography\.SHA256'
+)
 Assert-Text 'ListOnly does not create H destination directory' ($syncText -match 'if \(-not \$ListOnly\)\s*\{\s*New-Item')
 
 Assert-Text 'ListOnly mode reports H drive status without dirty rejection' (

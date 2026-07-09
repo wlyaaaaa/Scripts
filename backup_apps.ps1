@@ -40,6 +40,23 @@ function Write-HDriveStatusHost {
     }
 }
 
+function Get-CodexFileSha256 {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $hashBytes = $sha256.ComputeHash($stream)
+            return (($hashBytes | ForEach-Object { $_.ToString('x2') }) -join '')
+        } finally {
+            $sha256.Dispose()
+        }
+    } finally {
+        $stream.Dispose()
+    }
+}
+
 Write-Host ""
 Write-Host "  📦 软件列表备份" -ForegroundColor Cyan
 Write-Host "  ─────────────────────────────────" -ForegroundColor DarkGray
@@ -159,7 +176,7 @@ try {
                     throw "docker image save produced an empty archive for $image"
                 }
                 Move-Item -LiteralPath $tempTar -Destination $targetTar -Force
-                $hash = (Get-FileHash -LiteralPath $targetTar -Algorithm SHA256).Hash
+                $hash = Get-CodexFileSha256 -Path $targetTar
                 $targetItem = Get-Item -LiteralPath $targetTar
                 $dockerManifest += [pscustomobject]@{
                     Image = $image
