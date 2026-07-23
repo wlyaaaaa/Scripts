@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 )
 
@@ -86,7 +86,11 @@ Assert-Text 'unknown fsutil dirty output remains fail-safe' (
 
 Assert-Text 'Sync script dot-sources safety helper' ($syncText -match 'HDriveSafety\.ps1')
 Assert-Text 'backup_apps dot-sources safety helper' ($backupText -match 'HDriveSafety\.ps1')
-Assert-Text 'backup_apps returns failure when H write is rejected' ($backupText -match 'Pause-Exit\s+3')
+Assert-Text 'backup_apps targets G hot backup root' (
+    $backupText.Contains('$TargetDrive = "G:\"') -and
+    $backupText.Contains("`$AutoBackupDirName = '80_Backup'")
+)
+Assert-Text 'backup_apps returns failure when hot backup write is rejected' ($backupText -match 'Pause-Exit\s+3')
 Assert-Text 'backup_apps computes Docker archive hash without module autoload dependency' (
     $backupText -match 'function\s+Get-CodexFileSha256' -and
     $backupText -match 'System\.Security\.Cryptography\.SHA256'

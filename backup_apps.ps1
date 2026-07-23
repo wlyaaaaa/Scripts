@@ -12,8 +12,8 @@ try {
     # Non-interactive scheduled task hosts can reject RawUI cursor operations.
 }
 
-$TargetDrive = "H:\"
-$AutoBackupDirName = '80_' + (-join @([char]0x81EA, [char]0x52A8, [char]0x5907, [char]0x4EFD, [char]0x533A))
+$TargetDrive = "G:\"
+$AutoBackupDirName = '80_Backup'
 $SoftwareEnvDirName = -join @([char]0x8F6F, [char]0x4EF6, [char]0x73AF, [char]0x5883)
 $AutoBackupRoot = Join-Path $TargetDrive $AutoBackupDirName
 $BackupDir = Join-Path $AutoBackupRoot $SoftwareEnvDirName
@@ -63,8 +63,8 @@ Write-Host "  ──────────────────────
 Write-Host ""
 
 # 1. 驱动器检查
-Write-Host "  🔍 检查 H: 驱动器..." -NoNewline
-$initialStatus = Get-CodexHDriveStatus -DriveLetter 'H' -MinimumFreeBytes $MinimumFreeBytes
+Write-Host "  🔍 检查 G: 热备盘..." -NoNewline
+$initialStatus = Get-CodexHDriveStatus -DriveLetter 'G' -MinimumFreeBytes $MinimumFreeBytes
 if (-not $initialStatus.IsMounted) {
     Write-Host " ❌ 未挂载，已跳过" -ForegroundColor Red
     Pause-Exit
@@ -73,11 +73,11 @@ Write-Host " ✅" -ForegroundColor Green
 Write-HDriveStatusHost -Status $initialStatus
 
 try {
-    Write-Host "  🔒 等待 H: 写入锁..." -NoNewline
+    Write-Host "  🔒 等待 G: 热备写入锁..." -NoNewline
     Invoke-CodexHDriveWriteLock -TimeoutSeconds $MutexWaitSeconds -ScriptBlock {
         Write-Host " ✅" -ForegroundColor Green
 
-        $lockedStatus = Get-CodexHDriveStatus -DriveLetter 'H' -MinimumFreeBytes $MinimumFreeBytes
+        $lockedStatus = Get-CodexHDriveStatus -DriveLetter 'G' -MinimumFreeBytes $MinimumFreeBytes
         Write-HDriveStatusHost -Status $lockedStatus
         Assert-CodexHDriveWritable -Status $lockedStatus
 
@@ -198,7 +198,7 @@ try {
     }
 } catch {
     Write-Host " ❌" -ForegroundColor Red
-    Write-Host "  已拒绝/停止写入 H: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "  已拒绝/停止写入 G: $($_.Exception.Message)" -ForegroundColor Red
     Pause-Exit 3
 }
 

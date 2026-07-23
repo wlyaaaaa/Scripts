@@ -13,7 +13,7 @@ Windows 小工具脚本集。下面这些**双击就能用**:
 | **`IPv6切换.bat`** | **一键开/关 IPv6**(自动 UAC 提权)。关=全走 IPv4 经代理(Google/翻墙稳),开=IPv6 直连可用 | 只切**上网网卡**,**不动 `natpierce`**(公网穿要用它的 IPv6) |
 | **`更新README.bat`** | **自动刷新本 README 的文件清单**(下面 `## File list` 那段)并 commit + push | 描述区是手写的,只自动更新文件列表 |
 | **`auto_push.bat`** | 把本仓库**一键 commit + push 到 GitHub** | 无改动则自动跳过 |
-| **`backup_apps.bat`** | 备份**已装软件清单 + 环境变量 + winget 清单** 到 `H:\80_自动备份区\软件环境` | **要先插 `H:` 盘**,否则自动跳过 |
+| **`backup_apps.bat`** | 备份**已装软件清单 + 环境变量 + winget 清单** 到 `G:\80_Backup\软件环境` | G盘在线热备，可由计划任务直接访问 |
 | **`Sync-DownloadsToH.bat`** | 把系统下载目录 `E:\Downloads` 同步到 U 盘 `H:\03_下载与安装包` | 只复制/更新,**不删除 H 盘旧文件**; 低优先级思路,脚本内 `robocopy /MT:1 /R:0` |
 
 ## 其他(非开箱即用)
