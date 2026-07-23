@@ -14,13 +14,13 @@ Windows 小工具脚本集。下面这些**双击就能用**:
 | **`更新README.bat`** | **自动刷新本 README 的文件清单**(下面 `## File list` 那段)并 commit + push | 描述区是手写的,只自动更新文件列表 |
 | **`auto_push.bat`** | 把本仓库**一键 commit + push 到 GitHub** | 无改动则自动跳过 |
 | **`backup_apps.bat`** | 备份**已装软件清单 + 环境变量 + winget 清单** 到 `G:\80_Backup\软件环境` | G盘在线热备，可由计划任务直接访问 |
-| **`Sync-DownloadsToH.bat`** | 把系统下载目录 `E:\Downloads` 同步到 U 盘 `H:\03_下载与安装包` | 只复制/更新,**不删除 H 盘旧文件**; 低优先级思路,脚本内 `robocopy /MT:1 /R:0` |
+| **`Sync-DownloadsToG.bat`** | 把系统下载目录 `E:\Downloads` 同步到在线热备 `G:\80_Backup\03_下载与安装包` | 只复制/更新，**不删除 G 盘旧文件**；H 冷备统一由 PCConfig 人工执行 G→H |
 
 ## 其他(非开箱即用)
 
 - `Set-DefaultAudio.ps1`、`backup_apps.ps1`、`IPv6-Status.ps1`、`IPv6-Toggle.ps1`、`Update-Readme.ps1` —— 上面那些 `.bat` 的内核,不单独跑。
 - `backup_apps_hidden.vbs`、`auto_push.vbs` —— 对应功能的**无窗口版**,挂「任务计划程序」定时跑用。
-- `Sync-DownloadsToH.ps1`、`Sync-DownloadsToH-Hidden.vbs` —— 下载目录同步到 H 盘的计划任务入口; 源目录是 Windows 当前下载目录 `E:\Downloads`; 先验清单可跑 `Sync-DownloadsToH.ps1 -ListOnly`。隐藏入口优先用 `pwsh.exe` 并等待子进程结束,避免任务计划程序提前返回。若 `state\h-downloads-known-bad-20260707.csv` 存在,隐藏任务会先做一次已知 CRC 文件覆盖修复,成功后自动改名为 `.done-*`。
+- `Sync-DownloadsToG.ps1`、`Sync-DownloadsToG-Hidden.vbs` —— 下载目录到 G 热备的人工/可调度入口；可先跑 `Sync-DownloadsToG.ps1 -ListOnly`。任何 H 冷备只能从已验收的 G 热备经 PCConfig 人工流程复制。
 - `HDriveSafety.ps1` —— 写入 H 盘前的公共护栏: 检查 dirty / `Full Repair Needed`、剩余空间,并用 `Global\CodexHDriveUsbWriteLock` 防并发写入; H 盘状态不安全时拒绝写入。
 - `检查运行状态.vbs` —— 弹窗看 TimeAudit 状态,**依赖 `E:\Projects\Tools\TimeAudit\check_status_gui.ps1`**(不在本仓库)。
 
@@ -51,8 +51,8 @@ Windows 小工具脚本集。下面这些**双击就能用**:
 | `release_keyboard.py` | 481 B | 2026-07-01 02:03 |
 | `Set-DefaultAudio-Hidden.vbs` | 425 B | 2026-07-05 22:37 |
 | `Set-DefaultAudio.ps1` | 1817 B | 2026-06-28 15:41 |
-| `Sync-DownloadsToH-Hidden.vbs` | 462 B | 2026-07-07 20:49 |
-| `Sync-DownloadsToH.bat` | 263 B | 2026-07-07 19:52 |
-| `Sync-DownloadsToH.ps1` | 6136 B | 2026-07-07 20:56 |
+| `Sync-DownloadsToG-Hidden.vbs` | 热备隐藏入口 | 当前 |
+| `Sync-DownloadsToG.bat` | 热备双击入口 | 当前 |
+| `Sync-DownloadsToG.ps1` | 下载目录 G 热备脚本 | 当前 |
 | `Update-Readme.ps1` | 1599 B | 2026-06-28 21:09 |
 <!-- FILES:END -->

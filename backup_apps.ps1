@@ -79,7 +79,10 @@ try {
 
         $lockedStatus = Get-CodexHDriveStatus -DriveLetter 'G' -MinimumFreeBytes $MinimumFreeBytes
         Write-HDriveStatusHost -Status $lockedStatus
-        Assert-CodexHDriveWritable -Status $lockedStatus
+        # G is the always-online hot tier. A Limited scheduled-task token cannot
+        # run fsutil; accept unknown dirty only for this fixed G target while
+        # still requiring mounted/healthy/operational/free-space checks.
+        Assert-CodexHDriveWritable -Status $lockedStatus -AllowUnknownDirty
 
         # 2. 创建备份目录
         if (-not (Test-Path -LiteralPath $BackupDir)) {
@@ -197,6 +200,12 @@ try {
         }
     }
 } catch {
+    $failureLog = Join-Path $PSScriptRoot 'logs\backup_apps_last_error.log'
+    New-Item -ItemType Directory -Path (Split-Path -Parent $failureLog) -Force | Out-Null
+    @(
+        "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $($_.Exception.Message)"
+        $_.ScriptStackTrace
+    ) | Set-Content -LiteralPath $failureLog -Encoding UTF8
     Write-Host " ❌" -ForegroundColor Red
     Write-Host "  已拒绝/停止写入 G: $($_.Exception.Message)" -ForegroundColor Red
     Pause-Exit 3

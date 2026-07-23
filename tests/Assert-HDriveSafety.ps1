@@ -17,9 +17,9 @@ function Assert-Text {
     Write-Host "PASS: $Name"
 }
 
-$syncScript = Join-Path $RepoRoot 'Sync-DownloadsToH.ps1'
+$syncScript = Join-Path $RepoRoot 'Sync-DownloadsToG.ps1'
 $backupScript = Join-Path $RepoRoot 'backup_apps.ps1'
-$hiddenLauncher = Join-Path $RepoRoot 'Sync-DownloadsToH-Hidden.vbs'
+$hiddenLauncher = Join-Path $RepoRoot 'Sync-DownloadsToG-Hidden.vbs'
 $autoPushBatch = Join-Path $RepoRoot 'auto_push.bat'
 $autoPushLauncher = Join-Path $RepoRoot 'auto_push.vbs'
 $helperScript = Join-Path $RepoRoot 'HDriveSafety.ps1'
@@ -43,7 +43,7 @@ $backupErrors = $null
 $helperTokens = $null
 $helperErrors = $null
 [System.Management.Automation.Language.Parser]::ParseFile($helperScript, [ref]$helperTokens, [ref]$helperErrors) | Out-Null
-Assert-Text 'Sync-DownloadsToH.ps1 parses' ($syncErrors.Count -eq 0)
+Assert-Text 'Sync-DownloadsToG.ps1 parses' ($syncErrors.Count -eq 0)
 Assert-Text 'backup_apps.ps1 parses' ($backupErrors.Count -eq 0)
 Assert-Text 'HDriveSafety.ps1 parses' ($helperErrors.Count -eq 0)
 
@@ -55,7 +55,7 @@ Assert-Text 'backup_apps.ps1 keeps UTF-8 BOM for Windows PowerShell 5.1' (
     $backupBytes[2] -eq 0xBF
 )
 
-Assert-Text 'VBS waits for PowerShell child process' ($hiddenText -match 'shell\.Run\s+cmd,\s*0,\s*True')
+Assert-Text 'VBS waits for PowerShell child process' ($hiddenText -match 'shell\.Run\s*\(?cmd,\s*0,\s*True')
 Assert-Text 'auto_push.bat works from its own directory' ($autoPushBatchText -match '%~dp0')
 Assert-Text 'auto_push.vbs resolves its own directory' (
     $autoPushLauncherText -match 'WScript\.ScriptFullName' -and
@@ -84,7 +84,10 @@ Assert-Text 'unknown fsutil dirty output remains fail-safe' (
     $null -eq (ConvertFrom-CodexDirtyQueryOutput '卷 - H: 状态未知')
 )
 
-Assert-Text 'Sync script dot-sources safety helper' ($syncText -match 'HDriveSafety\.ps1')
+Assert-Text 'Downloads sync targets G hot storage' (
+    $syncText -match "Destination = 'G:\\80_Backup\\03_下载与安装包'" -and
+    $syncText -notmatch "Destination = 'H:"
+)
 Assert-Text 'backup_apps dot-sources safety helper' ($backupText -match 'HDriveSafety\.ps1')
 Assert-Text 'backup_apps targets G hot backup root' (
     $backupText.Contains('$TargetDrive = "G:\"') -and
@@ -95,11 +98,12 @@ Assert-Text 'backup_apps computes Docker archive hash without module autoload de
     $backupText -match 'function\s+Get-CodexFileSha256' -and
     $backupText -match 'System\.Security\.Cryptography\.SHA256'
 )
-Assert-Text 'ListOnly does not create H destination directory' ($syncText -match 'if \(-not \$ListOnly\)\s*\{\s*New-Item')
+Assert-Text 'ListOnly does not create G destination directory' ($syncText -match 'if \(-not \$ListOnly\)\s*\{\s*\$null = New-Item')
 
-Assert-Text 'ListOnly mode reports H drive status without dirty rejection' (
-    $syncText -match '\$ListOnly' -and
-    $syncText -match 'ListOnly.*dirty|dirty.*ListOnly|DirtyBitSet'
+Assert-Text 'Downloads hot sync has a G health and free-space gate' ($syncText -match 'Assert-GHotWritable' -and $syncText -match 'MinimumFreeBytes')
+Assert-Text 'retired Downloads-to-H launchers are absent' (
+    -not (Test-Path -LiteralPath (Join-Path $RepoRoot 'Sync-DownloadsToH.ps1')) -and
+    -not (Test-Path -LiteralPath (Join-Path $RepoRoot 'Sync-DownloadsToH-Hidden.vbs'))
 )
 
 Assert-Text 'README documents H drive guardrails' (

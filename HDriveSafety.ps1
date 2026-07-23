@@ -100,6 +100,17 @@ function Get-CodexHDriveStatus {
         } else {
             $status.DirtyCheckError = $_.Exception.Message
         }
+
+        # Limited scheduled-task tokens may be unable to execute fsutil. Use the
+        # read-only WMI volume flag as a fallback without weakening the H gate.
+        try {
+            $logical = Get-CimInstance -ClassName Win32_LogicalDisk -Filter ("DeviceID='{0}:'" -f $letter) -ErrorAction Stop
+            if ($null -ne $logical.VolumeDirty) {
+                $status.DirtyBitSet = [bool]$logical.VolumeDirty
+                $status.DirtyCheckError = $null
+                $status.DirtyCheckOutput = 'Win32_LogicalDisk.VolumeDirty fallback'
+            }
+        } catch {}
     }
 
     try {
@@ -136,48 +147,53 @@ function Format-CodexHDriveStatus {
         'Unknown'
     }
 
+    $label = "$($Status.DriveLetter) drive"
     @(
-        "H drive mounted: $($Status.IsMounted)"
-        "H drive dirty bit: $dirty"
-        "H drive health: $($Status.HealthStatus)"
-        "H drive operational status: $($Status.OperationalStatus -join ',')"
-        "H drive free space: $(ConvertTo-CodexByteText $Status.FreeBytes) (minimum $(ConvertTo-CodexByteText $Status.MinimumFreeBytes))"
-        $(if ($Status.DirtyCheckError) { "H drive dirty check error: $($Status.DirtyCheckError)" })
-        $(if ($Status.SpaceCheckError) { "H drive space check error: $($Status.SpaceCheckError)" })
+        "$label mounted: $($Status.IsMounted)"
+        "$label dirty bit: $dirty"
+        "$label health: $($Status.HealthStatus)"
+        "$label operational status: $($Status.OperationalStatus -join ',')"
+        "$label free space: $(ConvertTo-CodexByteText $Status.FreeBytes) (minimum $(ConvertTo-CodexByteText $Status.MinimumFreeBytes))"
+        $(if ($Status.DirtyCheckError) { "$label dirty check error: $($Status.DirtyCheckError)" })
+        $(if ($Status.SpaceCheckError) { "$label space check error: $($Status.SpaceCheckError)" })
     ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
 }
 
 function Assert-CodexHDriveWritable {
-    param([pscustomobject]$Status)
+    param(
+        [pscustomobject]$Status,
+        [switch]$AllowUnknownDirty
+    )
 
     $problems = [System.Collections.Generic.List[string]]::new()
 
+    $drive = "$($Status.DriveLetter):"
     if (-not $Status.IsMounted) {
-        $problems.Add('H: is not mounted.')
+        $problems.Add("$drive is not mounted.")
     }
 
     if ($Status.DirtyBitSet -eq $true) {
-        $problems.Add('H: dirty bit is set.')
-    } elseif ($null -eq $Status.DirtyBitSet) {
-        $problems.Add("H: dirty status could not be verified. $($Status.DirtyCheckError)")
+        $problems.Add("$drive dirty bit is set.")
+    } elseif ($null -eq $Status.DirtyBitSet -and -not $AllowUnknownDirty) {
+        $problems.Add("$drive dirty status could not be verified. $($Status.DirtyCheckError)")
     }
 
     if ($Status.FullRepairNeeded) {
-        $problems.Add('H: reports Full Repair Needed.')
+        $problems.Add("$drive reports Full Repair Needed.")
     }
 
     if ($Status.HealthStatus -and $Status.HealthStatus -notin @('Healthy', 'Unknown')) {
-        $problems.Add("H: health status is $($Status.HealthStatus).")
+        $problems.Add("$drive health status is $($Status.HealthStatus).")
     }
 
     if ($null -eq $Status.FreeBytes) {
-        $problems.Add("H: free space could not be verified. $($Status.SpaceCheckError)")
+        $problems.Add("$drive free space could not be verified. $($Status.SpaceCheckError)")
     } elseif ($Status.IsSpaceTooLow) {
-        $problems.Add("H: free space is $(ConvertTo-CodexByteText $Status.FreeBytes), below minimum $(ConvertTo-CodexByteText $Status.MinimumFreeBytes).")
+        $problems.Add("$drive free space is $(ConvertTo-CodexByteText $Status.FreeBytes), below minimum $(ConvertTo-CodexByteText $Status.MinimumFreeBytes).")
     }
 
     if ($problems.Count -gt 0) {
-        throw [System.InvalidOperationException]::new("Refusing to write H:. $($problems -join ' ')")
+        throw [System.InvalidOperationException]::new("Refusing to write $drive. $($problems -join ' ')")
     }
 }
 
