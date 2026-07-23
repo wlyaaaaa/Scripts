@@ -1,4 +1,4 @@
-param(
+﻿param(
     [switch]$ListOnly,
     [UInt64]$MinimumFreeBytes = [UInt64](2GB),
     [int]$MutexWaitSeconds = 1800
@@ -58,4 +58,3 @@ try {
     if ($hasLock) { $mutex.ReleaseMutex() }
     $mutex.Dispose()
 }
-
