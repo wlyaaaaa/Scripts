@@ -7,7 +7,6 @@ If fso.FileExists(pwsh) Then
 Else
     exe = "powershell.exe"
 End If
-cmd = exe & " -NoProfile -ExecutionPolicy Bypass -File """ & here & "\Sync-DownloadsToG.ps1"" -Quiet"
+cmd = exe & " -NoProfile -ExecutionPolicy Bypass -File """ & here & "\Sync-DocumentsToG.ps1"" -Quiet"
 exitCode = shell.Run(cmd, 0, True)
 WScript.Quit exitCode
-

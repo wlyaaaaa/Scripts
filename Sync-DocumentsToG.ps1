@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param(
     [switch]$ListOnly,
     [switch]$Quiet,
@@ -8,33 +8,37 @@ param(
     [int]$QuarantineRetentionDays = 30,
     [int]$QuarantineFileThreshold = 2000,
     [double]$QuarantineRatioThreshold = 0.3,
-    [string[]]$ExcludeNamePatterns = @('*.crdownload', '*.part', '*.opdownload', '*.download')
+    [string[]]$ExcludeNamePatterns = @('~$*', '.~lock.*'),
+    [string[]]$ExcludeDirPatterns = @('xwechat_files', '.tmp.driveupload', 'BaiduNetdiskTmp', 'CloudCache')
 )
 
-# Hot-backup the Windows Downloads folder to G with a quarantine-cooling mirror:
-#   incremental copy is truly incremental (only new/changed files cross the wire);
-#   source deletions shrink the backup too, but removed destination items are first
-#   moved into G:\80_Backup\_quarantine\Downloads-<stamp>\ (relative paths kept)
-#   and only permanently pruned after -QuarantineRetentionDays days.
+# Hot-backup the Windows Documents folder to G with a quarantine-cooling mirror
+# (same engine and policy as Sync-DownloadsToG.ps1):
+#   incremental copy is truly incremental; source deletions shrink the backup too,
+#   but removed destination items are first moved into
+#   G:\80_Backup\_quarantine\Documents-<stamp>\ and only permanently pruned after
+#   -QuarantineRetentionDays days.
+# Excluded by design: WeChat xwechat_files (covered by the dedicated WeChat backup
+# chain) and cloud/upload staging caches (.tmp.driveupload, BaiduNetdiskTmp,
+# CloudCache). Office owner/lock files (~$*, .~lock.*) are transient and skipped.
 # File-in-use handling: bounded robocopy retries (/R:2 /W:5), then the locked file
-# is skipped, categorized (file_in_use / access_denied), listed in the receipt and
-# retried automatically on the next incremental run; benign skips never fail the task.
+# is skipped, categorized, listed in the receipt and retried next run.
 
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
 $OutputEncoding = [Text.UTF8Encoding]::new($false)
 
-$Source = 'E:\Downloads'
-$Destination = 'G:\80_Backup\03_下载与安装包'
+$Source = 'E:\Documents'
+$Destination = 'G:\80_Backup\Documents'
 $QuarantineRoot = 'G:\80_Backup\_quarantine'
-$ReceiptPath = 'G:\80_Backup\ControlPlane\downloads-hot-last.json'
+$ReceiptPath = 'G:\80_Backup\ControlPlane\documents-hot-last.json'
 $LogDir = Join-Path $PSScriptRoot 'logs'
 $MutexName = 'Global\CodexGHotBackupWriteLock'
 $ProgressEnginePath = Join-Path $PSScriptRoot 'Robocopy-Progress.ps1'
 
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 $Stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$LogFile = Join-Path $LogDir "downloads-to-g-$Stamp.log"
+$LogFile = Join-Path $LogDir "documents-to-g-$Stamp.log"
 
 function Write-LogLine([string]$Message) {
     $line = "[{0}] {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Message
@@ -56,7 +60,7 @@ function Assert-GHotWritable {
 function Remove-ExpiredQuarantine {
     if (-not (Test-Path -LiteralPath $QuarantineRoot -PathType Container)) { return }
     $cutoff = (Get-Date).AddDays(-$QuarantineRetentionDays)
-    foreach ($dir in @(Get-ChildItem -LiteralPath $QuarantineRoot -Directory -Filter 'Downloads-*' -Force -ErrorAction SilentlyContinue)) {
+    foreach ($dir in @(Get-ChildItem -LiteralPath $QuarantineRoot -Directory -Filter 'Documents-*' -Force -ErrorAction SilentlyContinue)) {
         if ($dir.LastWriteTime -lt $cutoff) {
             try {
                 Remove-Item -LiteralPath $dir.FullName -Recurse -Force -ErrorAction Stop
@@ -95,11 +99,12 @@ try {
         $null = New-Item -ItemType Directory -Path $Destination -Force
     }
 
-    Write-LogLine "Downloads hot backup: $Source -> $Destination (incremental + quarantine-cooling mirror)"
+    Write-LogLine "Documents hot backup: $Source -> $Destination (incremental + quarantine-cooling mirror)"
     $mirrorArgs = @('/E', '/COPY:DAT', '/DCOPY:DAT', '/FFT', '/XJ', '/MT:4')
     foreach ($pat in $ExcludeNamePatterns) { $mirrorArgs += @('/XF', $pat) }
+    foreach ($pat in $ExcludeDirPatterns) { $mirrorArgs += @('/XD', $pat) }
 
-    $extras = Get-MirrorExtras -Source $Source -Destination $Destination -ExcludeNamePatterns $ExcludeNamePatterns
+    $extras = Get-MirrorExtras -Source $Source -Destination $Destination -ExcludeNamePatterns $ExcludeNamePatterns -ExcludeDirPatterns $ExcludeDirPatterns
     if ($extras.SourceFileCount -eq 0) {
         throw "Source $Source appears to hold no files; refusing to mirror an empty source onto the backup."
     }
@@ -113,7 +118,7 @@ try {
 
     if ($ListOnly) {
         $plan = [pscustomobject]@{
-            schema = 'downloads.hot-backup-plan.v1'
+            schema = 'documents.hot-backup-plan.v1'
             source = $Source; destination = $Destination
             copy_files = $scan.CopyFiles; copy_bytes = $scan.CopyBytes
             quarantine_files = $extraFileCount; quarantine_dirs = $extraDirCount
@@ -147,7 +152,7 @@ try {
         }
 
         if ($doQuarantine) {
-            $quarantineDir = Join-Path $QuarantineRoot "Downloads-$Stamp"
+            $quarantineDir = Join-Path $QuarantineRoot "Documents-$Stamp"
             $sortedExtraDirs = @($extras.ExtraDirs | Sort-Object { $_.Length })
             $topExtraDirs = [Collections.Generic.List[string]]::new()
             foreach ($d in $sortedExtraDirs) {
@@ -183,9 +188,10 @@ try {
 
     $copyArgs = @('/E', '/COPY:DAT', '/DCOPY:DAT', '/FFT', '/XJ', '/R:2', '/W:5', '/MT:4', '/J')
     foreach ($pat in $ExcludeNamePatterns) { $copyArgs += @('/XF', $pat) }
+    foreach ($pat in $ExcludeDirPatterns) { $copyArgs += @('/XD', $pat) }
     Write-LogLine "Robocopy run starting (log: $LogFile)"
     $run = Invoke-RobocopyWithProgress -Source $Source -Destination $Destination -RobocopyArgs $copyArgs `
-        -Activity 'Downloads 热备 → G' -TotalFiles $scan.CopyFiles -TotalBytes $scan.CopyBytes -Quiet:$Quiet
+        -Activity 'Documents 热备 → G' -TotalFiles $scan.CopyFiles -TotalBytes $scan.CopyBytes -Quiet:$Quiet
     $exitCode = $run.ExitCode
     Write-LogLine ("Robocopy exit code: {0}; copied {1} files ({2}) in {3}s, avg {4}/s" -f
         $exitCode, $run.FilesCopied, (Format-ByteSize -Bytes $run.BytesCopied),
@@ -215,7 +221,7 @@ try {
 }
 
 $receipt = [pscustomobject]@{
-    schema = 'downloads.hot-backup-receipt.v1'
+    schema = 'documents.hot-backup-receipt.v1'
     completed_utc = [DateTimeOffset]::UtcNow.ToString('o')
     status = $status
     source = $Source

@@ -1,21 +1,21 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [string]$TaskName = 'DownloadsHotBackup-Daily',
+    [string]$TaskName = 'DocumentsHotBackup-Daily',
     [string]$TaskPath = '\',
-    [datetime]$DailyAt = [datetime]::Today.AddHours(21).AddMinutes(35),
+    [datetime]$DailyAt = [datetime]::Today.AddHours(21).AddMinutes(50),
     [string]$UserId = "$env:USERDOMAIN\$env:USERNAME",
     [switch]$DefinitionOnly
 )
 
 $ErrorActionPreference = 'Stop'
 
-$launcher = Join-Path $PSScriptRoot 'Sync-DownloadsToG-Hidden.vbs'
-$backupScript = Join-Path $PSScriptRoot 'Sync-DownloadsToG.ps1'
+$launcher = Join-Path $PSScriptRoot 'Sync-DocumentsToG-Hidden.vbs'
+$backupScript = Join-Path $PSScriptRoot 'Sync-DocumentsToG.ps1'
 if (-not (Test-Path -LiteralPath $launcher -PathType Leaf)) {
     throw "Hidden launcher is missing: $launcher"
 }
 if (-not (Test-Path -LiteralPath $backupScript -PathType Leaf)) {
-    throw "Downloads hot-backup script is missing: $backupScript"
+    throw "Documents hot-backup script is missing: $backupScript"
 }
 
 $wscript = Join-Path $env:SystemRoot 'System32\wscript.exe'
@@ -29,14 +29,14 @@ $settings = New-ScheduledTaskSettingsSet `
     -RestartCount 3 `
     -RestartInterval (New-TimeSpan -Minutes 15) `
     -MultipleInstances IgnoreNew `
-    -ExecutionTimeLimit (New-TimeSpan -Hours 2) `
+    -ExecutionTimeLimit (New-TimeSpan -Hours 4) `
     -AllowStartIfOnBatteries `
     -DontStopIfGoingOnBatteries
 $principal = New-ScheduledTaskPrincipal `
     -UserId $UserId `
     -LogonType Interactive `
     -RunLevel Limited
-$description = 'Daily incremental E:\Downloads to G hot backup with quarantine-cooling mirror (source deletions move into G:\80_Backup\_quarantine, 30-day retention). Hidden launcher; catches up after missed runs; never writes H.'
+$description = 'Daily incremental E:\Documents to G hot backup with quarantine-cooling mirror (source deletions move into G:\80_Backup\_quarantine, 30-day retention; excludes WeChat xwechat_files and cloud staging caches). Hidden launcher; catches up after missed runs; never writes H.'
 $definition = New-ScheduledTask `
     -Action $action `
     -Trigger $trigger `
@@ -71,10 +71,10 @@ if ($registeredAction.Count -ne 1 -or
     [int]$registered.Settings.RestartCount -ne 3 -or
     [string]$registered.Settings.RestartInterval -ne 'PT15M' -or
     [string]$registered.Settings.MultipleInstances -ne 'IgnoreNew' -or
-    [string]$registered.Settings.ExecutionTimeLimit -ne 'PT2H' -or
+    [string]$registered.Settings.ExecutionTimeLimit -ne 'PT4H' -or
     $registered.Settings.RunOnlyIfNetworkAvailable -or
     $registered.Settings.WakeToRun) {
-    throw "Scheduled task readback does not match the required Downloads hot-backup policy: $target"
+    throw "Scheduled task readback does not match the required Documents hot-backup policy: $target"
 }
 
 Write-Host "[OK] $target is installed and verified."
