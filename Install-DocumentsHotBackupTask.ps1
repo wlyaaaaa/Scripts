@@ -2,10 +2,12 @@
 param(
     [string]$TaskName = 'DocumentsHotBackup-Daily',
     [string]$TaskPath = '\',
-    [datetime]$DailyAt = [datetime]::Today.AddHours(21).AddMinutes(50),
+    [datetime]$DailyAt = [datetime]::Today.AddHours(21).AddMinutes(35),
     [string]$UserId = "$env:USERDOMAIN\$env:USERNAME",
     [switch]$DefinitionOnly
 )
+
+#requires -Version 7.0
 
 $ErrorActionPreference = 'Stop'
 

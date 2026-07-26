@@ -1,3 +1,5 @@
+#requires -Version 7.0
+
 # Shared robocopy scan / progress engine for Codex backup scripts.
 # Dot-source this file; it defines Get-RobocopyScan, Invoke-RobocopyWithProgress,
 # Get-MirrorExtras and small formatting helpers.
@@ -106,6 +108,7 @@ function Get-RobocopyScan {
   $psi.StandardOutputEncoding = $script:RobocopyOemEncoding
 
   $p = [Diagnostics.Process]::Start($psi)
+  $stderrTask = $p.StandardError.ReadToEndAsync()
   $copyFiles = 0L; $copyBytes = 0L
   $summary = @{}
   while (-not $p.StandardOutput.EndOfStream) {
@@ -115,7 +118,7 @@ function Get-RobocopyScan {
     elseif ($rec.Kind -eq 'summary') { $summary[$rec.Row] = $rec }
   }
   $p.WaitForExit()
-  $stderr = $p.StandardError.ReadToEnd()
+  $stderr = $stderrTask.GetAwaiter().GetResult()
 
   return [pscustomobject]@{
     Source = $Source; Destination = $Destination
@@ -248,6 +251,7 @@ function Invoke-RobocopyWithProgress {
 
   $stopwatch = [Diagnostics.Stopwatch]::StartNew()
   $p = [Diagnostics.Process]::Start($psi)
+  $stderrTask = $p.StandardError.ReadToEndAsync()
 
   $filesDone = 0L; $bytesDone = 0L; $extrasSeen = 0L
   $copyIndex = @{}
@@ -299,7 +303,7 @@ function Invoke-RobocopyWithProgress {
         elseif ($TotalFiles -gt 0) { $pct = [math]::Min(100, [math]::Floor(100.0 * $filesDone / $TotalFiles)) }
         $remainingBytes = [math]::Max([int64]0, $TotalBytes - $bytesDone)
         $etaSeconds = if ($windowSpeed -gt 0 -and $TotalBytes -gt 0) { $remainingBytes / $windowSpeed } else { -1 }
-        $status = '{0}/{1} 个文件 | {2}/{3} | 当前 {4}/s 平均 {5}/s' -f
+        $status = '{0}/{1} 个文件 | 估算 {2}/{3} | 当前 {4}/s 平均 {5}/s' -f
           $filesDone, $TotalFiles,
           (Format-ByteSize -Bytes $bytesDone), (Format-ByteSize -Bytes $TotalBytes),
           (Format-ByteSize -Bytes $windowSpeed), (Format-ByteSize -Bytes $avgSpeed)
@@ -314,7 +318,7 @@ function Invoke-RobocopyWithProgress {
     }
   }
   $p.WaitForExit()
-  $stderr = $p.StandardError.ReadToEnd()
+  $stderr = $stderrTask.GetAwaiter().GetResult()
   $stopwatch.Stop()
 
   if (-not $Quiet) {
@@ -324,19 +328,29 @@ function Invoke-RobocopyWithProgress {
   }
 
   $duration = $stopwatch.Elapsed.TotalSeconds
-  # Attempt counters include unique files that ultimately failed (their line is
-  # emitted before the first ERROR); subtract unique failures for the copy count.
-  # The localized summary table in the result carries the authoritative totals.
-  $copiedCount = [math]::Max([int64]0, $filesDone - $failed.Count)
+  # During a copy Robocopy emits a file line before its final result, so the live
+  # bar is necessarily an estimate. The final receipt must use Robocopy's summary
+  # counters, which exclude files/bytes that ultimately failed.
+  $copiedCount = if ($summary.ContainsKey('Files')) {
+    [int64]$summary['Files'].Copied
+  } else {
+    [math]::Max([int64]0, $filesDone - $failed.Count)
+  }
+  $copiedBytes = if ($summary.ContainsKey('Bytes')) {
+    [int64]$summary['Bytes'].Copied
+  } else {
+    $bytesDone
+  }
   return [pscustomobject]@{
     Source = $Source; Destination = $Destination
     ExitCode = $p.ExitCode; Stderr = $stderr
-    FilesCopied = $copiedCount; BytesCopied = $bytesDone; ExtrasSeen = $extrasSeen
-    FilesAttempted = $filesDone
+    FilesCopied = $copiedCount; BytesCopied = $copiedBytes; ExtrasSeen = $extrasSeen
+    FilesAttempted = $filesDone; BytesAttempted = $bytesDone
     FailedFiles = $failed.ToArray()
     Summary = $summary
     DurationSeconds = [math]::Round($duration, 3)
-    AvgBytesPerSec = if ($duration -gt 0) { [math]::Round($bytesDone / $duration, 0) } else { 0 }
+    AvgBytesPerSec = if ($duration -gt 0) { [math]::Round($copiedBytes / $duration, 0) } else { 0 }
+    ProgressAccuracy = 'estimated_during_copy_authoritative_at_completion'
     CompletedUtc = [DateTimeOffset]::UtcNow.ToString('o')
   }
 }

@@ -9,8 +9,17 @@ param(
     [int]$QuarantineFileThreshold = 2000,
     [double]$QuarantineRatioThreshold = 0.3,
     [string[]]$ExcludeNamePatterns = @('~$*', '.~lock.*'),
-    [string[]]$ExcludeDirPatterns = @('xwechat_files', '.tmp.driveupload', 'BaiduNetdiskTmp', 'CloudCache')
+    [string[]]$ExcludeDirPatterns = @('xwechat_files', '.tmp.driveupload', 'BaiduNetdiskTmp', 'CloudCache'),
+    [string]$Source = 'E:\Documents',
+    [string]$Destination = 'G:\80_Backup\Documents',
+    [string]$QuarantineRoot = 'G:\80_Backup\_quarantine',
+    [string]$ReceiptPath = 'G:\80_Backup\ControlPlane\documents-hot-last.json',
+    [string]$LogDir = (Join-Path $PSScriptRoot 'logs'),
+    [string]$MutexName = 'Global\CodexGHotBackupWriteLock',
+    [string]$ProgressEnginePath = (Join-Path $PSScriptRoot 'Robocopy-Progress.ps1')
 )
+
+#requires -Version 7.0
 
 # Hot-backup the Windows Documents folder to G with a quarantine-cooling mirror
 # (same engine and policy as Sync-DownloadsToG.ps1):
@@ -28,16 +37,8 @@ $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
 $OutputEncoding = [Text.UTF8Encoding]::new($false)
 
-$Source = 'E:\Documents'
-$Destination = 'G:\80_Backup\Documents'
-$QuarantineRoot = 'G:\80_Backup\_quarantine'
-$ReceiptPath = 'G:\80_Backup\ControlPlane\documents-hot-last.json'
-$LogDir = Join-Path $PSScriptRoot 'logs'
-$MutexName = 'Global\CodexGHotBackupWriteLock'
-$ProgressEnginePath = Join-Path $PSScriptRoot 'Robocopy-Progress.ps1'
-
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
-$Stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$Stamp = '{0}-{1}' -f (Get-Date -Format 'yyyyMMdd-HHmmss-fff'), $PID
 $LogFile = Join-Path $LogDir "documents-to-g-$Stamp.log"
 
 function Write-LogLine([string]$Message) {
@@ -47,7 +48,10 @@ function Write-LogLine([string]$Message) {
 }
 
 function Assert-GHotWritable {
-    $volume = Get-Volume -DriveLetter G -ErrorAction Stop
+    $root = [IO.Path]::GetPathRoot([IO.Path]::GetFullPath($Destination))
+    $driveLetter = $root.TrimEnd('\').TrimEnd(':')
+    if ($driveLetter.Length -ne 1) { throw "Hot-backup destination must be on a local drive: $Destination" }
+    $volume = Get-Volume -DriveLetter $driveLetter -ErrorAction Stop
     if ($volume.HealthStatus -notin @('Healthy','Unknown')) { throw "G health status is $($volume.HealthStatus)." }
     if (@($volume.OperationalStatus | Where-Object { $_ -notin @('OK','Unknown') }).Count -gt 0) {
         throw "G operational status is $($volume.OperationalStatus -join ',')."
@@ -87,15 +91,16 @@ $syncError = $null
 $scan = $null
 $extras = $null
 $exitCode = 0
+$receiptError = $null
 
 $createdNew = $false
 $mutex = [Threading.Mutex]::new($false, $MutexName, [ref]$createdNew)
 $hasLock = $false
 try {
     if (-not $ListOnly) {
-        Remove-ExpiredQuarantine
         $hasLock = $mutex.WaitOne([TimeSpan]::FromSeconds($MutexWaitSeconds))
         if (-not $hasLock) { throw "Timed out waiting for $MutexName." }
+        Remove-ExpiredQuarantine
         $null = New-Item -ItemType Directory -Path $Destination -Force
     }
 
@@ -135,55 +140,41 @@ try {
         $overThreshold = ($extraFileCount -gt $QuarantineFileThreshold) -or
             ($extras.DestinationFileCount -gt 0 -and
              (($extraFileCount / [math]::Max(1, $extras.DestinationFileCount)) -gt $QuarantineRatioThreshold))
-        $doQuarantine = $true
-        if ($overThreshold -and -not $ForceQuarantine) {
-            if ($Quiet) {
-                $doQuarantine = $false
-                $quarantineDeferred = $true
-                Write-LogLine "WARN: quarantine规模超阈值 ($extraFileCount files > $QuarantineFileThreshold or ratio > $QuarantineRatioThreshold); deferred in silent run. Review and rerun manually with -ForceQuarantine."
-            } else {
-                $answer = Read-Host "隔离规模较大：$extraFileCount 个文件 / $extraDirCount 个目录将移入隔离区。确认执行? (y/N)"
-                if ($answer -ne 'y' -and $answer -ne 'Y') {
-                    $doQuarantine = $false
-                    $quarantineDeferred = $true
-                    Write-LogLine 'Quarantine declined by operator for this run; copy continues.'
-                }
-            }
+        if ($overThreshold) {
+            Write-LogLine "NOTICE: large source-deletion set ($extraFileCount files; ratio threshold $QuarantineRatioThreshold). Proceeding because quarantine is recoverable and source enumeration completed."
         }
 
-        if ($doQuarantine) {
-            $quarantineDir = Join-Path $QuarantineRoot "Documents-$Stamp"
-            $sortedExtraDirs = @($extras.ExtraDirs | Sort-Object { $_.Length })
-            $topExtraDirs = [Collections.Generic.List[string]]::new()
-            foreach ($d in $sortedExtraDirs) {
-                $isChild = $false
-                foreach ($t in $topExtraDirs) { if ($d.StartsWith($t + '\', [StringComparison]::OrdinalIgnoreCase)) { $isChild = $true; break } }
-                if (-not $isChild) { $topExtraDirs.Add($d) }
-            }
-            $rootExtraFiles = [Collections.Generic.List[string]]::new()
-            foreach ($f in $extras.ExtraFiles) {
-                $covered = $false
-                foreach ($t in $topExtraDirs) { if ($f.StartsWith($t + '\', [StringComparison]::OrdinalIgnoreCase)) { $covered = $true; break } }
-                if (-not $covered) { $rootExtraFiles.Add($f) }
-            }
-
-            foreach ($rel in @($topExtraDirs) + @($rootExtraFiles)) {
-                $sourcePath = Join-Path $Destination $rel
-                $targetPath = Join-Path $quarantineDir $rel
-                try {
-                    $null = New-Item -ItemType Directory -Path (Split-Path -Parent $targetPath) -Force
-                    $item = Get-Item -LiteralPath $sourcePath -Force -ErrorAction Stop
-                    $isFile = -not $item.PSIsContainer
-                    $size = if ($isFile) { [Int64]$item.Length } else { 0 }
-                    Move-Item -LiteralPath $sourcePath -Destination $targetPath -Force -ErrorAction Stop
-                    if ($isFile) { $movedFiles++; $movedBytes += $size } else { $movedDirs++ }
-                } catch {
-                    $moveFailures.Add([pscustomobject]@{ path = $sourcePath; error = $_.Exception.Message })
-                    Write-LogLine "WARN: quarantine move failed (kept in place, will retry next run): $sourcePath -- $($_.Exception.Message)"
-                }
-            }
-            Write-LogLine "Quarantined $movedFiles files / $movedDirs dirs ($(Format-ByteSize -Bytes $movedBytes)) -> $quarantineDir"
+        $quarantineDir = Join-Path $QuarantineRoot "Documents-$Stamp"
+        $sortedExtraDirs = @($extras.ExtraDirs | Sort-Object { $_.Length })
+        $topExtraDirs = [Collections.Generic.List[string]]::new()
+        foreach ($d in $sortedExtraDirs) {
+            $isChild = $false
+            foreach ($t in $topExtraDirs) { if ($d.StartsWith($t + '\', [StringComparison]::OrdinalIgnoreCase)) { $isChild = $true; break } }
+            if (-not $isChild) { $topExtraDirs.Add($d) }
         }
+        $rootExtraFiles = [Collections.Generic.List[string]]::new()
+        foreach ($f in $extras.ExtraFiles) {
+            $covered = $false
+            foreach ($t in $topExtraDirs) { if ($f.StartsWith($t + '\', [StringComparison]::OrdinalIgnoreCase)) { $covered = $true; break } }
+            if (-not $covered) { $rootExtraFiles.Add($f) }
+        }
+
+        foreach ($rel in @($topExtraDirs) + @($rootExtraFiles)) {
+            $sourcePath = Join-Path $Destination $rel
+            $targetPath = Join-Path $quarantineDir $rel
+            try {
+                $null = New-Item -ItemType Directory -Path (Split-Path -Parent $targetPath) -Force
+                $item = Get-Item -LiteralPath $sourcePath -Force -ErrorAction Stop
+                $isFile = -not $item.PSIsContainer
+                $size = if ($isFile) { [Int64]$item.Length } else { 0 }
+                Move-Item -LiteralPath $sourcePath -Destination $targetPath -Force -ErrorAction Stop
+                if ($isFile) { $movedFiles++; $movedBytes += $size } else { $movedDirs++ }
+            } catch {
+                $moveFailures.Add([pscustomobject]@{ path = $sourcePath; error = $_.Exception.Message })
+                Write-LogLine "WARN: quarantine move failed (kept in place, will retry next run): $sourcePath -- $($_.Exception.Message)"
+            }
+        }
+        Write-LogLine "Quarantined $movedFiles files / $movedDirs dirs ($(Format-ByteSize -Bytes $movedBytes)) -> $quarantineDir"
     }
 
     $copyArgs = @('/E', '/COPY:DAT', '/DCOPY:DAT', '/FFT', '/XJ', '/R:2', '/W:5', '/MT:4', '/J')
@@ -211,6 +202,14 @@ try {
         }
     } elseif (@($run.FailedFiles).Count -gt 0) {
         $status = 'success_with_skips'
+    }
+    if ($moveFailures.Count -gt 0 -and $status -eq 'complete') {
+        $status = 'success_with_skips'
+    }
+    if ($status -ne 'failed') {
+        # Robocopy 0..7 are success/informational states. Task Scheduler needs a
+        # conventional process exit code, while the original code stays in receipt.
+        $exitCode = 0
     }
 } catch {
     $syncError = $_
@@ -244,8 +243,15 @@ try {
     $null = New-Item -ItemType Directory -Path (Split-Path -Parent $ReceiptPath) -Force
     [IO.File]::WriteAllText($ReceiptPath, ($receipt | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
 } catch {
+    $receiptError = $_
     Write-LogLine "WARN: failed to write receipt ${ReceiptPath}: $($_.Exception.Message)"
 }
 Write-LogLine "Status: $status"
+if ($receiptError) {
+    if ($syncError) {
+        throw "Backup failed ($($syncError.Exception.Message)) and receipt write failed ($($receiptError.Exception.Message))."
+    }
+    throw $receiptError
+}
 if ($syncError) { throw $syncError }
 exit $exitCode

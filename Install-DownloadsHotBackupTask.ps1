@@ -7,6 +7,8 @@ param(
     [switch]$DefinitionOnly
 )
 
+#requires -Version 7.0
+
 $ErrorActionPreference = 'Stop'
 
 $launcher = Join-Path $PSScriptRoot 'Sync-DownloadsToG-Hidden.vbs'

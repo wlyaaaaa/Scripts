@@ -14,14 +14,15 @@ Windows 小工具脚本集。下面这些**双击就能用**:
 | **`更新README.bat`** | **自动刷新本 README 的文件清单**(下面 `## File list` 那段)并 commit + push | 描述区是手写的,只自动更新文件列表 |
 | **`auto_push.bat`** | 把本仓库**一键 commit + push 到 GitHub** | 即使工作区干净也会推送已有 ahead；behind/diverged 或已有人工 staged 会阻断，成功前实时确认远端 OID |
 | **`backup_apps.bat`** | 备份**已装软件清单 + 环境变量 + winget 清单** 到 `G:\80_Backup\软件环境` | G盘在线热备，可由计划任务直接访问 |
-| **`Sync-DownloadsToG.bat`** | 把系统下载目录 `E:\Downloads` 同步到在线热备 `G:\80_Backup\03_下载与安装包` | 只复制/更新，**不删除 G 盘旧文件**；H 冷备统一由 PCConfig 人工执行 G→H |
+| **`Sync-DownloadsToG.bat`** | 把系统下载目录 `E:\Downloads` 增量同步到在线热备 `G:\80_Backup\03_下载与安装包` | 显示百分比、速度、文件数和 ETA；源端删除项进入 30 天隔离区；H 冷备统一由 PCConfig 人工执行 G→H |
+| **`Sync-DocumentsToG.bat`** | 把系统文档目录 `E:\Documents` 增量同步到在线热备 `G:\80_Backup\Documents` | 与 Downloads 共用进度与隔离引擎；排除微信专用目录和云盘临时缓存 |
 
 ## 其他(非开箱即用)
 
 - `Set-DefaultAudio.ps1`、`backup_apps.ps1`、`IPv6-Status.ps1`、`IPv6-Toggle.ps1`、`Update-Readme.ps1` —— 上面那些 `.bat` 的内核,不单独跑。
 - `backup_apps_hidden.vbs`、`auto_push.vbs` —— 对应功能的**无窗口版**,挂「任务计划程序」定时跑用。
-- `Sync-DownloadsToG.ps1`、`Sync-DownloadsToG-Hidden.vbs` —— 下载目录到 G 热备的人工/可调度入口；可先跑 `Sync-DownloadsToG.ps1 -ListOnly`。任何 H 冷备只能从已验收的 G 热备经 PCConfig 人工流程复制。
-- `Install-DownloadsHotBackupTask.ps1` —— 幂等安装 `DownloadsHotBackup-Daily`：每天 21:35 通过 `wscript.exe` 隐藏运行；错过时补跑，失败后每 15 分钟重试（最多 3 次），拒绝并发实例，2 小时超时，不依赖网络、不唤醒电脑。
+- `Sync-DownloadsToG.ps1` / `Sync-DocumentsToG.ps1` —— Downloads、Documents 到 G 的增量热备内核；手动 `.bat` 入口显示进度，隐藏 VBS 供计划任务使用。源端删除项始终先移入 `G:\80_Backup\_quarantine`，保留 30 天；文件占用或访问拒绝记入凭证并在下次重试，不中断其他文件。任何 H 冷备只能从已验收的 G 热备经 PCConfig 人工流程复制。
+- `Install-DownloadsHotBackupTask.ps1` / `Install-DocumentsHotBackupTask.ps1` —— 幂等安装两个每天 21:35 的隐藏热备任务；共享全局互斥锁，实际复制按顺序执行。错过时补跑，失败后每 15 分钟重试（最多 3 次），不依赖网络、不唤醒电脑。
 - `HDriveSafety.ps1` —— 写入 H 盘前的公共护栏: 检查 dirty / `Full Repair Needed`、剩余空间,并用 `Global\CodexHDriveUsbWriteLock` 防并发写入; H 盘状态不安全时拒绝写入。
 - `检查运行状态.vbs` —— 弹窗看 TimeAudit 状态,**依赖 `E:\Projects\Tools\TimeAudit\check_status_gui.ps1`**(不在本仓库)。
 
@@ -29,12 +30,14 @@ Windows 小工具脚本集。下面这些**双击就能用**:
 
 ```powershell
 pwsh -NoProfile -File .\Install-DownloadsHotBackupTask.ps1
+pwsh -NoProfile -File .\Install-DocumentsHotBackupTask.ps1
 ```
 
 自动推送与下载任务定义的回归测试：
 
 ```powershell
 pwsh -NoProfile -File .\tests\Test-AutoPushAndDownloadsTask.ps1
+pwsh -NoProfile -File .\tests\Test-HotBackupCore.ps1
 ```
 
 > 关于 IPv6:很多被墙的服务(Google/Antigravity 等)会**优先走 IPv6 直连**,而代理只接管 IPv4 → IPv6 流量裸奔撞墙超时。**登录 Google 系应用前,用 `IPv6状态.bat` 看一眼,开着就 `IPv6切换.bat` 关掉**,登录完想要 IPv6 再切回来。
@@ -68,5 +71,8 @@ pwsh -NoProfile -File .\tests\Test-AutoPushAndDownloadsTask.ps1
 | `Sync-DownloadsToG-Hidden.vbs` | 热备隐藏入口 | 当前 |
 | `Sync-DownloadsToG.bat` | 热备双击入口 | 当前 |
 | `Sync-DownloadsToG.ps1` | 下载目录 G 热备脚本 | 当前 |
+| `Sync-DocumentsToG-Hidden.vbs` | 文档热备隐藏入口 | 当前 |
+| `Sync-DocumentsToG.bat` | 文档热备双击入口 | 当前 |
+| `Sync-DocumentsToG.ps1` | 文档目录 G 热备脚本 | 当前 |
 | `Update-Readme.ps1` | 1599 B | 2026-06-28 21:09 |
 <!-- FILES:END -->
