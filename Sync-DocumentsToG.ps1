@@ -9,7 +9,13 @@ param(
     [int]$QuarantineFileThreshold = 2000,
     [double]$QuarantineRatioThreshold = 0.3,
     [string[]]$ExcludeNamePatterns = @('~$*', '.~lock.*'),
-    [string[]]$ExcludeDirPatterns = @('xwechat_files', '.tmp.driveupload', 'BaiduNetdiskTmp', 'CloudCache'),
+    [string[]]$ExcludeDirPatterns = @(
+        'xwechat_files',
+        '.tmp.driveupload',
+        'BaiduNetdiskTmp',
+        'CloudCache',
+        '_SavedGames'
+    ),
     [string]$Source = 'E:\Documents',
     [string]$Destination = 'G:\80_Backup\Documents',
     [string]$QuarantineRoot = 'G:\80_Backup\_quarantine',
