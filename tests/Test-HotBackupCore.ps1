@@ -84,6 +84,26 @@ Assert-True (
     $documentsLauncherText -match
         'G:\\80_Backup\\Documents\\_SavedGames\\AppData\\Frostpunk2'
 ) 'precise AppData saves remain inside the existing Documents backup tree'
+foreach ($mediaRoot in @('Pictures', 'Music', 'Videos')) {
+    Assert-True (
+        $documentsLauncherText -match
+            [regex]::Escape("E:\$mediaRoot")
+    ) "Documents task includes the $mediaRoot known folder"
+    Assert-True (
+        $documentsLauncherText -match
+            [regex]::Escape(
+                "G:\80_Backup\PersonalMedia\$mediaRoot"
+            )
+    ) "$mediaRoot uses the single PersonalMedia backup tree"
+}
+Assert-True (
+    @(
+        [regex]::Matches(
+            $documentsLauncherText,
+            'G:\\80_Backup\\PersonalMedia\\'
+        )
+    ).Count -eq 3
+) 'PersonalMedia has exactly the three discovered known-folder roots'
 
 foreach ($path in @($downloadsBat, $documentsBat)) {
     $text = Get-Content -LiteralPath $path -Raw -Encoding utf8

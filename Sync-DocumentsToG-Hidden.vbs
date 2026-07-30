@@ -95,4 +95,31 @@ If fso.FolderExists(frostpunk2BetaSaves) Then
     If exitCode <> 0 Then WScript.Quit exitCode
 End If
 
+' Pictures, Music and Videos are Windows known folders with user-authored data
+' on E. They share this existing task and copy engine, but use one nonduplicate
+' PersonalMedia tree so Documents remains a coherent restore root.
+If fso.FolderExists("E:\Pictures") Then
+    exitCode = RunDocumentsOwner( _
+        "E:\Pictures", _
+        "G:\80_Backup\PersonalMedia\Pictures", _
+        "G:\80_Backup\ControlPlane\personal-media-pictures-hot-last.json")
+    If exitCode <> 0 Then WScript.Quit exitCode
+End If
+
+If fso.FolderExists("E:\Music") Then
+    exitCode = RunDocumentsOwner( _
+        "E:\Music", _
+        "G:\80_Backup\PersonalMedia\Music", _
+        "G:\80_Backup\ControlPlane\personal-media-music-hot-last.json")
+    If exitCode <> 0 Then WScript.Quit exitCode
+End If
+
+If fso.FolderExists("E:\Videos") Then
+    exitCode = RunDocumentsOwner( _
+        "E:\Videos", _
+        "G:\80_Backup\PersonalMedia\Videos", _
+        "G:\80_Backup\ControlPlane\personal-media-videos-hot-last.json")
+    If exitCode <> 0 Then WScript.Quit exitCode
+End If
+
 WScript.Quit 0
