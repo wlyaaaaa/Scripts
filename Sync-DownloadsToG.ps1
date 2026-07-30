@@ -230,7 +230,17 @@ $receipt = [pscustomobject]@{
     quarantined_bytes = $movedBytes
     quarantine_deferred = $quarantineDeferred
     quarantine_move_failures = $moveFailures.ToArray()
-    failed_files = if ($run) { @($run.FailedFiles | ForEach-Object { [pscustomobject]@{ code = $_.Code; category = $_.Category; path = $_.Path } }) } else { @() }
+    failed_files = [object[]]@(
+        if ($run) {
+            @($run.FailedFiles) | ForEach-Object {
+                [pscustomobject]@{
+                    code = $_.Code
+                    category = $_.Category
+                    path = $_.Path
+                }
+            }
+        }
+    )
     sync_error = if ($syncError) { $syncError.Exception.Message } else { $null }
 }
 try {

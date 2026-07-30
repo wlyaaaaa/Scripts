@@ -160,6 +160,10 @@ try {
     $secondReceipt = Get-Content -LiteralPath $receipt -Raw -Encoding utf8 | ConvertFrom-Json -Depth 10
     Assert-True ([int64]$secondReceipt.copy_files -eq 0) 'unchanged second run copies zero files'
     Assert-True ($secondReceipt.status -eq 'complete') 'unchanged second run is complete'
+    Assert-True (
+        $null -ne $secondReceipt.failed_files -and
+        @($secondReceipt.failed_files).Count -eq 0
+    ) 'successful receipt records an explicit empty failed-files closure'
 
     $lockedPath = Join-Path $source 'locked.txt'
     [IO.File]::WriteAllText($lockedPath, "locked`n", [Text.UTF8Encoding]::new($false))
