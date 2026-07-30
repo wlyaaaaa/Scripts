@@ -54,6 +54,37 @@ foreach ($path in @($downloadsLauncher, $documentsLauncher)) {
     Assert-True ($text -match 'WScript\.Quit') "$path propagates a deterministic exit code"
 }
 
+$documentsLauncherText = Get-Content -LiteralPath $documentsLauncher -Raw -Encoding utf8
+foreach ($preciseSaveRoot in @(
+    '\Saved Games',
+    '\userdata',
+    '\11bitstudios\Frostpunk2\Steam\Saved\SaveGames',
+    '\11bitstudios\Frostpunk2Beta\Steam\Saved\SaveGames'
+)) {
+    Assert-True (
+        $documentsLauncherText.Contains(
+            $preciseSaveRoot,
+            [StringComparison]::OrdinalIgnoreCase
+        )
+    ) "Documents owner includes precise local-save root: $preciseSaveRoot"
+}
+Assert-True (
+    $documentsLauncherText -match
+        'HKCU\\Software\\Valve\\Steam\\SteamPath'
+) 'Steam userdata source resolves the live Steam install root'
+Assert-True (
+    $documentsLauncherText -notmatch
+        'RunDocumentsOwner\(\s*_\s*\r?\n\s*localAppData\s*,'
+) 'Documents owner never backs up the whole LocalAppData root'
+Assert-True (
+    $documentsLauncherText -match
+        'G:\\80_Backup\\Documents\\_SavedGames\\SteamUserdata'
+) 'Steam userdata remains inside the existing Documents backup tree'
+Assert-True (
+    $documentsLauncherText -match
+        'G:\\80_Backup\\Documents\\_SavedGames\\AppData\\Frostpunk2'
+) 'precise AppData saves remain inside the existing Documents backup tree'
+
 foreach ($path in @($downloadsBat, $documentsBat)) {
     $text = Get-Content -LiteralPath $path -Raw -Encoding utf8
     Assert-True ($text -notmatch '(?i)powershell\.exe') "$path does not silently fall back to incompatible Windows PowerShell"

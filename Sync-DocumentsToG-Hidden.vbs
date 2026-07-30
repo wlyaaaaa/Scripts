@@ -48,4 +48,51 @@ If fso.FolderExists(userSavedGames) Then
     If exitCode <> 0 Then WScript.Quit exitCode
 End If
 
+' Steam userdata can contain game-owned local state that is not guaranteed to
+' participate in Steam Cloud. Resolve the live install root, then keep the
+' precise userdata subtree inside the existing Documents owner.
+On Error Resume Next
+steamPath = shell.RegRead("HKCU\Software\Valve\Steam\SteamPath")
+If Err.Number <> 0 Or Len(steamPath) = 0 Then
+    Err.Clear
+    steamPath = shell.RegRead( _
+        "HKLM\SOFTWARE\WOW6432Node\Valve\Steam\InstallPath")
+End If
+If Err.Number <> 0 Or Len(steamPath) = 0 Then
+    Err.Clear
+    steamPath = "C:\Program Files (x86)\Steam"
+End If
+On Error GoTo 0
+steamUserData = Replace(steamPath, "/", "\") & "\userdata"
+If fso.FolderExists(steamUserData) Then
+    exitCode = RunDocumentsOwner( _
+        steamUserData, _
+        "G:\80_Backup\Documents\_SavedGames\SteamUserdata", _
+        "G:\80_Backup\ControlPlane\saved-games-steam-hot-last.json")
+    If exitCode <> 0 Then WScript.Quit exitCode
+End If
+
+' Preserve only the discovered game save closures in AppData, never the
+' surrounding application profile, caches, logs, crash reports or whole tree.
+localAppData = shell.ExpandEnvironmentStrings("%LOCALAPPDATA%")
+frostpunk2Saves = localAppData & _
+    "\11bitstudios\Frostpunk2\Steam\Saved\SaveGames"
+If fso.FolderExists(frostpunk2Saves) Then
+    exitCode = RunDocumentsOwner( _
+        frostpunk2Saves, _
+        "G:\80_Backup\Documents\_SavedGames\AppData\Frostpunk2", _
+        "G:\80_Backup\ControlPlane\saved-games-frostpunk2-hot-last.json")
+    If exitCode <> 0 Then WScript.Quit exitCode
+End If
+
+frostpunk2BetaSaves = localAppData & _
+    "\11bitstudios\Frostpunk2Beta\Steam\Saved\SaveGames"
+If fso.FolderExists(frostpunk2BetaSaves) Then
+    exitCode = RunDocumentsOwner( _
+        frostpunk2BetaSaves, _
+        "G:\80_Backup\Documents\_SavedGames\AppData\Frostpunk2Beta", _
+        "G:\80_Backup\ControlPlane\saved-games-frostpunk2-beta-hot-last.json")
+    If exitCode <> 0 Then WScript.Quit exitCode
+End If
+
 WScript.Quit 0
