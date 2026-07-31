@@ -15,13 +15,13 @@ Windows 小工具脚本集。下面这些**双击就能用**:
 | **`auto_push.bat`** | 把本仓库**一键 commit + push 到 GitHub** | 即使工作区干净也会推送已有 ahead；behind/diverged 或已有人工 staged 会阻断，成功前实时确认远端 OID |
 | **`backup_apps.bat`** | 备份**已装软件清单 + 环境变量 + winget 清单** 到 `G:\80_Backup\软件环境` | G盘在线热备，可由计划任务直接访问 |
 | **`Sync-DownloadsToG.bat`** | 把系统下载目录 `E:\Downloads` 增量同步到在线热备 `G:\80_Backup\03_下载与安装包` | 显示百分比、速度、文件数和 ETA；源端删除项进入 30 天隔离区；H 冷备统一由 PCConfig 人工执行 G→H |
-| **`Sync-DocumentsToG.bat`** | 把系统文档目录 `E:\Documents` 增量同步到在线热备 `G:\80_Backup\Documents` | 与 Downloads 共用进度与隔离引擎；排除微信专用目录和云盘临时缓存 |
+| **`Sync-DocumentsToG.bat`** | 把系统文档目录 `E:\Documents` 增量同步到在线热备 `G:\80_Backup\Documents` | 同一任务还串行纳管个人媒体根；与 Downloads 共用进度与隔离引擎 |
 
 ## 其他(非开箱即用)
 
 - `Set-DefaultAudio.ps1`、`backup_apps.ps1`、`IPv6-Status.ps1`、`IPv6-Toggle.ps1`、`Update-Readme.ps1` —— 上面那些 `.bat` 的内核,不单独跑。
 - `backup_apps_hidden.vbs`、`auto_push.vbs` —— 对应功能的**无窗口版**,挂「任务计划程序」定时跑用。
-- `Sync-DownloadsToG.ps1` / `Sync-DocumentsToG.ps1` —— Downloads、Documents 到 G 的增量热备内核；同一个 Documents 任务还精确纳管两个 Saved Games 根、Steam `userdata` 和现场发现的 Frostpunk 2 正式版/测试版 `SaveGames`，并把 Windows Pictures/Music/Videos 三个个人媒体根写入唯一的 `G:\80_Backup\PersonalMedia` 树；不整包复制 AppData，也不另建任务。手动 `.bat` 入口显示进度，隐藏 VBS 供计划任务使用。源端删除项始终先移入 `G:\80_Backup\_quarantine`，保留 30 天；文件占用或访问拒绝记入凭证并在下次重试，不中断其他文件。任何 H 冷备只能从已验收的 G 热备经 PCConfig 人工流程复制。
+- `Sync-DownloadsToG.ps1` / `Sync-DocumentsToG.ps1` —— Downloads、Documents 到 G 的增量热备内核；同一个 Documents 任务还精确纳管两个 Saved Games 根、Steam `userdata` 和现场发现的 Frostpunk 2 正式版/测试版 `SaveGames`，并把 `E:\Pictures`、`E:\Music`、`E:\Videos`、`E:\Media` 四个个人媒体根分别写入唯一的 `G:\80_Backup\PersonalMedia` 树。每个媒体根都有独立回执；源不存在时安全跳过，任一实际调用失败都会使现有任务失败。不整包复制 AppData，也不另建任务。手动 `.bat` 入口显示进度，隐藏 VBS 供计划任务使用。源端删除项始终先移入 `G:\80_Backup\_quarantine`，保留 30 天；文件占用或访问拒绝记入凭证并在下次重试，不中断其他文件。任何 H 冷备只能从已验收的 G 热备经 PCConfig 人工流程复制。
 - `Install-DownloadsHotBackupTask.ps1` / `Install-DocumentsHotBackupTask.ps1` —— 幂等安装两个每天 21:35 的隐藏热备任务；共享全局互斥锁，实际复制按顺序执行。错过时补跑，失败后每 15 分钟重试（最多 3 次），不依赖网络、不唤醒电脑。
 - `HDriveSafety.ps1` —— 写入 H 盘前的公共护栏: 检查 dirty / `Full Repair Needed`、剩余空间,并用 `Global\CodexHDriveUsbWriteLock` 防并发写入; H 盘状态不安全时拒绝写入。
 - `检查运行状态.vbs` —— 弹窗看 TimeAudit 状态,**依赖 `E:\Projects\Tools\TimeAudit\check_status_gui.ps1`**(不在本仓库)。

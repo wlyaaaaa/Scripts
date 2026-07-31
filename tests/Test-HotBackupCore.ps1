@@ -84,7 +84,7 @@ Assert-True (
     $documentsLauncherText -match
         'G:\\80_Backup\\Documents\\_SavedGames\\AppData\\Frostpunk2'
 ) 'precise AppData saves remain inside the existing Documents backup tree'
-foreach ($mediaRoot in @('Pictures', 'Music', 'Videos')) {
+foreach ($mediaRoot in @('Pictures', 'Music', 'Videos', 'Media')) {
     Assert-True (
         $documentsLauncherText -match
             [regex]::Escape("E:\$mediaRoot")
@@ -102,8 +102,30 @@ Assert-True (
             $documentsLauncherText,
             'G:\\80_Backup\\PersonalMedia\\'
         )
-    ).Count -eq 3
-) 'PersonalMedia has exactly the three discovered known-folder roots'
+    ).Count -eq 4
+) 'PersonalMedia has exactly four independently receipted roots'
+Assert-True (
+    $documentsLauncherText -match
+        [regex]::Escape(
+            'G:\80_Backup\ControlPlane\personal-media-media-hot-last.json'
+        )
+) 'E:\Media has an independent Documents-owner receipt'
+$mediaOwnerBlock = [regex]::Match(
+    $documentsLauncherText,
+    '(?is)If\s+fso\.FolderExists\("E:\\Media"\)\s+Then(?<body>.*?)End\s+If'
+)
+Assert-True (
+    $mediaOwnerBlock.Success
+) 'missing E:\Media is skipped by the existing owner gate'
+Assert-True (
+    $mediaOwnerBlock.Groups['body'].Value -match
+        'RunDocumentsOwner\s*\(' -and
+    $mediaOwnerBlock.Groups['body'].Value -match
+        'If\s+exitCode\s+<>\s+0\s+Then\s+WScript\.Quit\s+exitCode'
+) 'E:\Media participates in the existing serial failure gate'
+Assert-True (
+    $documentsLauncherText -notmatch '(?i)\bH:\\'
+) 'Documents owner never writes H'
 
 foreach ($path in @($downloadsBat, $documentsBat)) {
     $text = Get-Content -LiteralPath $path -Raw -Encoding utf8

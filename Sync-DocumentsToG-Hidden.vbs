@@ -122,4 +122,14 @@ If fso.FolderExists("E:\Videos") Then
     If exitCode <> 0 Then WScript.Quit exitCode
 End If
 
+' E:\Media is a separate user-owned media root. Keep it in the same existing
+' task and PersonalMedia tree, with its own scalar source/destination receipt.
+If fso.FolderExists("E:\Media") Then
+    exitCode = RunDocumentsOwner( _
+        "E:\Media", _
+        "G:\80_Backup\PersonalMedia\Media", _
+        "G:\80_Backup\ControlPlane\personal-media-media-hot-last.json")
+    If exitCode <> 0 Then WScript.Quit exitCode
+End If
+
 WScript.Quit 0
