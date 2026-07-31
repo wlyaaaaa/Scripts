@@ -120,14 +120,21 @@ Assert-True ([string]$definition.Principal.RunLevel -eq 'Limited') 'Downloads ta
 $launcherText = Get-Content -LiteralPath $hiddenLauncher -Raw -Encoding utf8
 Assert-True ($launcherText -match 'shell\.Run\(cmd,\s*0,\s*True\)') 'Downloads VBS launcher must run PowerShell hidden and wait for its exit code.'
 Assert-True (
-    $launcherText -match [regex]::Escape('E:\下载') -and
-    $launcherText -match [regex]::Escape(
-        'G:\80_Backup\03_下载与安装包\_AlternateRoots\下载'
+    -not ($launcherText.ToCharArray() | Where-Object {
+        [int]$_ -gt 127
+    }) -and
+    $launcherText -match
+        'cnDownloads\s*=\s*ChrW\(&H4E0B\)\s*&\s*ChrW\(&H8F7D\)' -and
+    $launcherText.Contains(
+        'alternateSource = "E:\" & cnDownloads',
+        [StringComparison]::Ordinal
     ) -and
+    $launcherText -match
+        'alternateDestination\s*=\s*downloadsDestination\s*&' -and
     $launcherText -match [regex]::Escape(
         'G:\80_Backup\ControlPlane\downloads-cn-hot-last.json'
     )
-) 'Downloads launcher keeps the alternate personal-download root in the existing owner tree.'
+) 'Downloads launcher constructs alternate Chinese paths without encoding-sensitive VBS literals.'
 Assert-True (
     [regex]::Matches(
         $launcherText,

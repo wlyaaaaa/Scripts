@@ -172,17 +172,83 @@ Assert-True (
 $downloadsLauncherText = Get-Content -LiteralPath $downloadsLauncher `
     -Raw -Encoding utf8
 Assert-True (
+    -not ($downloadsLauncherText.ToCharArray() | Where-Object {
+        [int]$_ -gt 127
+    }) -and
     $downloadsLauncherText -match
-        [regex]::Escape('E:\下载') -and
+        'cnDownloads\s*=\s*ChrW\(&H4E0B\)\s*&\s*ChrW\(&H8F7D\)' -and
+    $downloadsLauncherText.Contains(
+        'alternateSource = "E:\" & cnDownloads',
+        [StringComparison]::Ordinal
+    ) -and
     $downloadsLauncherText -match
-        [regex]::Escape(
-            'G:\80_Backup\03_下载与安装包\_AlternateRoots\下载'
-        ) -and
+        'alternateDestination\s*=\s*downloadsDestination\s*&' -and
     $downloadsLauncherText -match
         [regex]::Escape(
             'G:\80_Backup\ControlPlane\downloads-cn-hot-last.json'
-        )
-) 'Downloads owner protects the current alternate personal-download root'
+    )
+) 'Downloads owner constructs Chinese paths without encoding-sensitive VBS literals'
+$pathAssignmentLines = @(
+    $downloadsLauncherText -split "`r?`n" |
+        Where-Object {
+            $_ -match '^(cnDownloads|cnAndInstallPackage|downloadsDestination|alternateSource|alternateDestination)\s*='
+        }
+)
+Assert-True ($pathAssignmentLines.Count -eq 5) `
+    'Downloads launcher exposes one closed set of ASCII-only path assignments'
+$pathProbe = Join-Path ([IO.Path]::GetTempPath()) (
+    'downloads-vbs-path-probe-{0}.vbs' -f [guid]::NewGuid().ToString('N')
+)
+try {
+    $probeText = @(
+        $pathAssignmentLines
+        'Function CodeUnits(value)'
+        '    result = ""'
+        '    For index = 1 To Len(value)'
+        '        If index > 1 Then result = result & ","'
+        '        code = AscW(Mid(value, index, 1))'
+        '        If code < 0 Then code = code + 65536'
+        '        result = result & Hex(code)'
+        '    Next'
+        '    CodeUnits = result'
+        'End Function'
+        'WScript.Echo CodeUnits(alternateSource)'
+        'WScript.Echo CodeUnits(downloadsDestination)'
+        'WScript.Echo CodeUnits(alternateDestination)'
+    ) -join "`r`n"
+    [IO.File]::WriteAllText(
+        $pathProbe,
+        $probeText,
+        [Text.Encoding]::ASCII
+    )
+    $pathProbeOutput = @(
+        & "$env:SystemRoot\System32\cscript.exe" //nologo $pathProbe
+    )
+    $pathProbeExit = $LASTEXITCODE
+} finally {
+    Remove-Item -LiteralPath $pathProbe -Force -ErrorAction SilentlyContinue
+}
+Assert-True (
+    $pathProbeExit -eq 0 -and
+    $pathProbeOutput.Count -eq 3 -and
+    [string]$pathProbeOutput[0] -ceq (
+        ('E:\下载'.ToCharArray() | ForEach-Object {
+            '{0:X}' -f [int]$_
+        }) -join ','
+    ) -and
+    [string]$pathProbeOutput[1] -ceq (
+        ('G:\80_Backup\03_下载与安装包'.ToCharArray() | ForEach-Object {
+            '{0:X}' -f [int]$_
+        }) -join ','
+    ) -and
+    [string]$pathProbeOutput[2] -ceq (
+        ((
+                'G:\80_Backup\03_下载与安装包\_AlternateRoots\下载'
+            ).ToCharArray() | ForEach-Object {
+                '{0:X}' -f [int]$_
+            }) -join ','
+    )
+) 'Windows Script Host resolves the ASCII-only launcher assignments to exact Unicode paths'
 Assert-True (
     [regex]::Matches(
         $downloadsLauncherText,
