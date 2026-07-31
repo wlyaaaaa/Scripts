@@ -38,7 +38,7 @@ $principal = New-ScheduledTaskPrincipal `
     -UserId $UserId `
     -LogonType Interactive `
     -RunLevel Limited
-$description = 'Daily incremental E:\Downloads to G hot backup with quarantine-cooling mirror (source deletions move into G:\80_Backup\_quarantine, 30-day retention). Hidden launcher; catches up after missed runs; never writes H.'
+$description = 'Daily incremental E:\Downloads and the current E:\下载 personal-download root to one G hot-backup tree with independent receipts and quarantine cooling. Hidden launcher; catches up after missed runs; never writes H.'
 $definition = New-ScheduledTask `
     -Action $action `
     -Trigger $trigger `

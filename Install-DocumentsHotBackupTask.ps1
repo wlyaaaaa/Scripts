@@ -38,7 +38,7 @@ $principal = New-ScheduledTaskPrincipal `
     -UserId $UserId `
     -LogonType Interactive `
     -RunLevel Limited
-$description = 'Daily incremental E:\Documents to G hot backup with quarantine-cooling mirror (source deletions move into G:\80_Backup\_quarantine, 30-day retention; excludes WeChat xwechat_files and cloud staging caches). Hidden launcher; catches up after missed runs; never writes H.'
+$description = 'Daily incremental Documents-owner backup to G: Documents, precise local saves, PersonalMedia, E:\Archive, local-only E:\ClineAgent, and the small custom Docker image export, each with an independent receipt. Quarantine cooling; catches up after missed runs; never writes H.'
 $definition = New-ScheduledTask `
     -Action $action `
     -Trigger $trigger `

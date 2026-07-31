@@ -123,6 +123,74 @@ Assert-True (
     $mediaOwnerBlock.Groups['body'].Value -match
         'If\s+exitCode\s+<>\s+0\s+Then\s+WScript\.Quit\s+exitCode'
 ) 'E:\Media participates in the existing serial failure gate'
+foreach ($personalRoot in @(
+    [pscustomobject]@{
+        Source = 'E:\Archive'
+        Destination =
+            'G:\80_Backup\Documents\_PersonalRoots\Archive'
+        Receipt =
+            'G:\80_Backup\ControlPlane\personal-root-archive-hot-last.json'
+    },
+    [pscustomobject]@{
+        Source = 'E:\ClineAgent'
+        Destination =
+            'G:\80_Backup\Documents\_PersonalRoots\ClineAgent'
+        Receipt =
+            'G:\80_Backup\ControlPlane\personal-root-cline-agent-hot-last.json'
+    }
+)) {
+    Assert-True (
+        $documentsLauncherText.Contains(
+            [string]$personalRoot.Source,
+            [StringComparison]::OrdinalIgnoreCase
+        ) -and
+        $documentsLauncherText.Contains(
+            [string]$personalRoot.Destination,
+            [StringComparison]::OrdinalIgnoreCase
+        ) -and
+        $documentsLauncherText.Contains(
+            [string]$personalRoot.Receipt,
+            [StringComparison]::OrdinalIgnoreCase
+        )
+    ) "Documents owner protects personal loose root: $($personalRoot.Source)"
+}
+Assert-True (
+    $documentsLauncherText.Contains(
+        'E:\DockerBackup\images',
+        [StringComparison]::OrdinalIgnoreCase
+    ) -and
+    $documentsLauncherText.Contains(
+        'G:\80_Backup\Docker\images',
+        [StringComparison]::OrdinalIgnoreCase
+    ) -and
+    $documentsLauncherText.Contains(
+        'G:\80_Backup\ControlPlane\docker-images-hot-last.json',
+        [StringComparison]::OrdinalIgnoreCase
+    )
+) 'Documents owner also protects the bounded G-only custom-image fallback'
+
+$downloadsLauncherText = Get-Content -LiteralPath $downloadsLauncher `
+    -Raw -Encoding utf8
+Assert-True (
+    $downloadsLauncherText -match
+        [regex]::Escape('E:\下载') -and
+    $downloadsLauncherText -match
+        [regex]::Escape(
+            'G:\80_Backup\03_下载与安装包\_AlternateRoots\下载'
+        ) -and
+    $downloadsLauncherText -match
+        [regex]::Escape(
+            'G:\80_Backup\ControlPlane\downloads-cn-hot-last.json'
+        )
+) 'Downloads owner protects the current alternate personal-download root'
+Assert-True (
+    [regex]::Matches(
+        $downloadsLauncherText,
+        'exitCode\s*=\s*RunDownloadsOwner\s*\('
+    ).Count -eq 2 -and
+    $downloadsLauncherText -match
+        'If\s+exitCode\s+<>\s+0\s+Then\s+WScript\.Quit\s+exitCode'
+) 'both Downloads roots share one serial fail-closed owner task'
 Assert-True (
     $documentsLauncherText -notmatch '(?i)\bH:\\'
 ) 'Documents owner never writes H'

@@ -119,6 +119,21 @@ Assert-True ([string]$definition.Principal.LogonType -eq 'Interactive') 'Downloa
 Assert-True ([string]$definition.Principal.RunLevel -eq 'Limited') 'Downloads task does not need elevation.'
 $launcherText = Get-Content -LiteralPath $hiddenLauncher -Raw -Encoding utf8
 Assert-True ($launcherText -match 'shell\.Run\(cmd,\s*0,\s*True\)') 'Downloads VBS launcher must run PowerShell hidden and wait for its exit code.'
+Assert-True (
+    $launcherText -match [regex]::Escape('E:\下载') -and
+    $launcherText -match [regex]::Escape(
+        'G:\80_Backup\03_下载与安装包\_AlternateRoots\下载'
+    ) -and
+    $launcherText -match [regex]::Escape(
+        'G:\80_Backup\ControlPlane\downloads-cn-hot-last.json'
+    )
+) 'Downloads launcher keeps the alternate personal-download root in the existing owner tree.'
+Assert-True (
+    [regex]::Matches(
+        $launcherText,
+        'exitCode\s*=\s*RunDownloadsOwner\s*\('
+    ).Count -eq 2
+) 'Downloads launcher has exactly two serial owner invocations.'
 
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ("scripts-backup-automation-tests-{0}-{1}" -f $PID, [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null

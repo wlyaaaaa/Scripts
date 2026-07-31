@@ -132,4 +132,33 @@ If fso.FolderExists("E:\Media") Then
     If exitCode <> 0 Then WScript.Quit exitCode
 End If
 
+' Preserve the current mixed personal archive and the local-only Cline Git
+' repository without creating another task or another cold-copy tree. Publicly
+' rebuildable payload inside these roots is tolerated because the bounded
+' total is small and the roots also contain irreplaceable user material.
+If fso.FolderExists("E:\Archive") Then
+    exitCode = RunDocumentsOwner( _
+        "E:\Archive", _
+        "G:\80_Backup\Documents\_PersonalRoots\Archive", _
+        "G:\80_Backup\ControlPlane\personal-root-archive-hot-last.json")
+    If exitCode <> 0 Then WScript.Quit exitCode
+End If
+
+If fso.FolderExists("E:\ClineAgent") Then
+    exitCode = RunDocumentsOwner( _
+        "E:\ClineAgent", _
+        "G:\80_Backup\Documents\_PersonalRoots\ClineAgent", _
+        "G:\80_Backup\ControlPlane\personal-root-cline-agent-hot-last.json")
+    If exitCode <> 0 Then WScript.Quit exitCode
+End If
+
+' Keep the small local custom-image export available from G-only recovery.
+If fso.FolderExists("E:\DockerBackup\images") Then
+    exitCode = RunDocumentsOwner( _
+        "E:\DockerBackup\images", _
+        "G:\80_Backup\Docker\images", _
+        "G:\80_Backup\ControlPlane\docker-images-hot-last.json")
+    If exitCode <> 0 Then WScript.Quit exitCode
+End If
+
 WScript.Quit 0
